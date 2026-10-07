@@ -1,12 +1,26 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Application.Dtos.Auth;
+using Application.Services;
+using Microsoft.AspNetCore.Mvc;
 
-namespace CreditFlow.Controllers
+namespace CreditFlow.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController(AuthService authService) : ControllerBase
 {
-    public class AuthController : Controller
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(RegisterDto dto)
     {
-        public IActionResult Index()
-        {
-            return View();
-        }
+        var user = await authService.Register(dto);
+
+        return Ok(user);
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login(LoginDto dto)
+    {
+        var response = await authService.Login(dto);
+
+        return Ok(response);
     }
 }
