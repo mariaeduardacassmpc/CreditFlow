@@ -99,34 +99,6 @@ O código deverá possuir validade limitada e ser invalidado após sua utilizaç
 ## Arquitetura
 
 A aplicação será organizada em camadas, buscando separar responsabilidades e facilitar a manutenção do código.
-Estrutura planejada:
-
-CreditFlow
-│
-├── CreditFlow.Api
-│   ├── Controllers
-│   ├── Middleware
-│   └── Configuration
-│
-├── CreditFlow.Application
-│   ├── Services
-│   ├── DTOs
-│   ├── Interfaces
-│   └── Validators
-│
-├── CreditFlow.Infrastructure
-│   ├── Data
-│   ├── Context
-│   ├── Repositories
-│   ├── Kafka
-│   └── Migrations
-│
-└── CreditFlow.Domain
-    ├── Entities
-    ├── Enums
-    └── Interfaces
-    
-
 A estrutura poderá ser ajustada conforme o projeto evoluir e novas necessidades surgirem.
 
 ## Banco de dados
@@ -134,18 +106,6 @@ A estrutura poderá ser ajustada conforme o projeto evoluir e novas necessidades
 O projeto utilizará **PostgreSQL** como banco de dados principal.
 O acesso aos dados será realizado através do **Entity Framework Core**, e as alterações na estrutura do banco deverão ser controladas por migrations.
 As credenciais reais não deverão ser versionadas no repositório.
-
-## Documentação da API
-
-A API utilizará **Swagger / OpenAPI** para documentar os endpoints.
-A documentação deverá permitir visualizar e testar:
-
-* Endpoints
-* Parâmetros
-* DTOs
-* Respostas
-* Códigos HTTP
-* Autenticação
 
 ## Testes
 
