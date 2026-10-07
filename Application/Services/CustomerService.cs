@@ -1,18 +1,23 @@
 ﻿using Domain.Entities;
 using Infrastructure.Data;
+using Infrastructure.ExternalServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services;
 
-public class CustomerService(CreditFlowDbContext context, ILogger<CustomerService> logger)
+public class CustomerService(CreditFlowDbContext context, ILogger<CustomerService> logger, ICreditScoreProvider creditScoreProvider)
 {
     public async Task<Customer> CreateCustomer(Customer customer)
     {
         logger.LogInformation("Criando cliente.");
 
+        var creditScore = await creditScoreProvider
+            .GetScoreAsync(customer.Cpf);
+
+        customer.CreditScore = creditScore;
         context.Customers.Add(customer);
-        
+
         try
         {
             await context.SaveChangesAsync();
@@ -73,10 +78,9 @@ public class CustomerService(CreditFlowDbContext context, ILogger<CustomerServic
 
         existingCustomer.Name = customer.Name;
         existingCustomer.Phone = customer.Phone;
-        existingCustomer.City = customer.City;
-        existingCustomer.Address = customer.Address;
         existingCustomer.Email = customer.Email;
         existingCustomer.Active = customer.Active;
+        existingCustomer.Cpf = customer.Cpf;
 
         await context.SaveChangesAsync();
 

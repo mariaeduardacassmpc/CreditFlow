@@ -2,17 +2,17 @@
 using Application.Dtos.Credit;
 using Domain.Entities;
 using Infrastructure.Data;
+using Infrastructure.ExternalServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Xml;
 
 namespace Application.Services;
 
-public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditRequestService> logger)
+public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditRequestService> logger, ICreditScoreProvider creditScoreProvider)
 {
     public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto)
     {
-        logger.LogInformation("Criando solicitação de crédito.");
+        logger.LogInformation("Criando solicitação de crédito para o cliente {CustomerId}.", dto.CustomerId);
 
         var customer = await context.Customers
             .FindAsync(dto.CustomerId);
@@ -20,12 +20,15 @@ public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditReq
         if (customer is null)
             throw new InvalidOperationException("Cliente não encontrado.");
 
+        var creditScore = await creditScoreProvider
+            .GetScoreAsync(customer.Email);
+
         var creditRequest = new CreditRequest
         {
             CustomerId = dto.CustomerId,
             RequestedAmount = dto.RequestedAmount,
             MonthlyIncome = dto.MonthlyIncome,
-            CreditScore = customer.CreditScore,
+            CreditScore = creditScore,
             EmploymentMonths = dto.EmploymentMonths,
             Status = "Pending",
             CreatedAt = DateTime.UtcNow,
@@ -36,7 +39,10 @@ public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditReq
 
         await context.SaveChangesAsync();
 
-        logger.LogInformation("Solicitação de crédito {CreditRequestId} criada com sucesso.", creditRequest.CreditRequestId);
+        logger.LogInformation(
+            "Solicitação de crédito {CreditRequestId} criada com score {CreditScore}.",
+            creditRequest.CreditRequestId,
+            creditScore);
 
         return creditRequest;
     }

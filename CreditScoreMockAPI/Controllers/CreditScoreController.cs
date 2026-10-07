@@ -11,9 +11,9 @@ public class CreditScoreController : ControllerBase
     {
         var scores = new Dictionary<string, int>
         {
-            ["mariana@gmail.com"] = 742,
-            ["luiza@gmail.com"] = 650,
-            ["joao@gmail.com"] = 480
+            ["12345678900"] = 742,
+            ["98765432100"] = 650,
+            ["11122233344"] = 480
         };
 
         if (!scores.TryGetValue(email, out var score))

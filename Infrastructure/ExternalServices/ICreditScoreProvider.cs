@@ -2,5 +2,5 @@
 
 public interface ICreditScoreProvider
 {
-    Task<int> GetScoreAsync(string email);
+    Task<int> GetScoreAsync(string cpf);
 }

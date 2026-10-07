@@ -18,7 +18,7 @@ public static class DependencyInjectionExtensions
         services.AddHttpClient<IEmailService, EmailService>();
         services.AddHttpClient<CreditScoreProvider>(client =>
         {
-            client.BaseAddress = new Uri("http://localhost:5005/");
+            client.BaseAddress = new Uri("http://localhost:5171/");
         });
 
         services.AddScoped<ICreditScoreProvider>(sp => sp.GetRequiredService<CreditScoreProvider>());
