@@ -15,6 +15,11 @@ public class CustomerService(CreditFlowDbContext context, ILogger<CustomerServic
         var creditScore = await creditScoreProvider
             .GetScoreAsync(customer.Cpf);
 
+        logger.LogInformation(
+    "Score retornado para o CPF {Cpf}: {CreditScore}",
+    customer.Cpf,
+    creditScore);
+
         customer.CreditScore = creditScore;
         context.Customers.Add(customer);
 

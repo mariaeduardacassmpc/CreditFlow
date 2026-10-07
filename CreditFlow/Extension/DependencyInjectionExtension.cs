@@ -16,12 +16,10 @@ public static class DependencyInjectionExtensions
         services.AddScoped<CreditRequestService>();
         services.AddScoped<DashboardService>();
         services.AddHttpClient<IEmailService, EmailService>();
-        services.AddHttpClient<CreditScoreProvider>(client =>
+        services.AddHttpClient<ICreditScoreProvider, CreditScoreProvider>(client =>
         {
             client.BaseAddress = new Uri("http://localhost:5171/");
         });
-
-        services.AddScoped<ICreditScoreProvider>(sp => sp.GetRequiredService<CreditScoreProvider>());
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
