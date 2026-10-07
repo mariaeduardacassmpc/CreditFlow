@@ -17,12 +17,10 @@ Durante o desenvolvimento, serão implementados recursos como **autenticação c
 * **Swagger / OpenAPI**
 * **xUnit**
 * **Moq**
-* **Docker** *(planejado)*
+* **Docker**
 
 
 ## Objetivos do projeto
-
-O CreditFlow será desenvolvido com foco em:
 
 * Construção de APIs REST
 * Organização e separação de responsabilidades
@@ -87,8 +85,8 @@ O uso do Kafka permitirá explorar conceitos de **event-driven architecture**, p
 
 ## Recuperação de senha
 
-Será desenvolvido um fluxo de recuperação de senha utilizando um token temporário.
-O token deverá possuir tempo de expiração e não poderá ser reutilizado após a conclusão do processo.
+Será desenvolvido um fluxo de recuperação de senha utilizando um código temporário.
+O código deverá possuir tempo de expiração e não poderá ser reutilizado após a conclusão do processo.
 
 ## Autenticação de dois fatores (2FA)
 
@@ -96,16 +94,10 @@ Como parte da camada de segurança, será implementada autenticação de dois fa
 A proposta é utilizar um código temporário após a validação das credenciais do usuário.
 O código deverá possuir validade limitada e ser invalidado após sua utilização.
 
-## Arquitetura
-
-A aplicação será organizada em camadas, buscando separar responsabilidades e facilitar a manutenção do código.
-A estrutura poderá ser ajustada conforme o projeto evoluir e novas necessidades surgirem.
-
 ## Banco de dados
 
 O projeto utilizará **PostgreSQL** como banco de dados principal.
 O acesso aos dados será realizado através do **Entity Framework Core**, e as alterações na estrutura do banco deverão ser controladas por migrations.
-As credenciais reais não deverão ser versionadas no repositório.
 
 ## Testes
 
@@ -116,24 +108,3 @@ As ferramentas planejadas são:
 * **Moq**
 * **Entity Framework Core InMemory**
 
-
-## Conceitos que serão explorados
-
-* C#
-* ASP.NET Core
-* APIs REST
-* Entity Framework Core
-* PostgreSQL
-* JWT
-* Autenticação e autorização
-* 2FA
-* Recuperação de senha
-* Apache Kafka
-* Producers e Consumers
-* Event-driven architecture
-* Processamento assíncrono
-* Injeção de dependência
-* Separação de responsabilidades
-* Testes automatizados
-* Swagger / OpenAPI
-* Docker
