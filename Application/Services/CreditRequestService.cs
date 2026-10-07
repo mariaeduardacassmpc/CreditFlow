@@ -1,14 +1,19 @@
-﻿using Application.Dtos.Auth;
+﻿using Application.Dtos;
+using Application.Dtos.Credit;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Xml;
 
 namespace Application.Services;
 
-public class CreditRequestService(CreditFlowDbContext context)
+public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditRequestService> logger)
 {
     public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto)
     {
+        logger.LogInformation("Criando solicitação de crédito.");
+
         var customer = await context.Customers
             .FindAsync(dto.CustomerId);
 
@@ -20,26 +25,57 @@ public class CreditRequestService(CreditFlowDbContext context)
             CustomerId = dto.CustomerId,
             RequestedAmount = dto.RequestedAmount,
             MonthlyIncome = dto.MonthlyIncome,
-            CreditScore = dto.CreditScore,
+            CreditScore = customer.CreditScore,
             EmploymentMonths = dto.EmploymentMonths,
             Status = "Pending",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Purpose = dto.Purpose
         };
 
         context.CreditRequests.Add(creditRequest);
 
         await context.SaveChangesAsync();
 
+        logger.LogInformation("Solicitação de crédito {CreditRequestId} criada com sucesso.", creditRequest.CreditRequestId);
+
         return creditRequest;
     }
 
-    public async Task<IEnumerable<CreditRequest>> GetAllCreditRequests()
+    public async Task<IEnumerable<CreditRequestListDto>> GetAllCreditRequests()
     {
-        return await context.CreditRequests.ToListAsync();
+        logger.LogInformation("Buscando todas solicitações de crédito.");
+
+        return await context.CreditRequests
+            .Select(x => new CreditRequestListDto
+            {
+                CreditRequestId = x.CreditRequestId,
+                CustomerId = x.CustomerId,
+                RequestedAmount = x.RequestedAmount,
+                CreatedAt = x.CreatedAt,
+                Status = x.Status
+            })
+            .ToListAsync();
     }
 
-    public async Task<CreditRequest?> GetById(int id)
+    public async Task<CreditRequestDetailsDto?> GetById(int id)
     {
-        return await context.CreditRequests.FindAsync(id);
+        logger.LogInformation("Buscando solicitação de crédito por Id.");
+
+        return await context.CreditRequests
+            .Where(x => x.CreditRequestId == id)
+            .Select(x => new CreditRequestDetailsDto
+            {
+                CreditRequestId = x.CreditRequestId,
+                CustomerId = x.CustomerId,
+                CustomerName = x.Customer.Name,
+                CustomerEmail = x.Customer.Email,
+                RequestedAmount = x.RequestedAmount,
+                MonthlyIncome = x.MonthlyIncome,
+                CreditScore = x.CreditScore,
+                EmploymentMonths = x.EmploymentMonths,
+                Status = x.Status,
+                CreatedAt = x.CreatedAt
+            })
+            .FirstOrDefaultAsync();
     }
 }

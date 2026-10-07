@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <Compile Remove="Class1.cs" />
+    <Compile Remove="Dtos\CreditRequestDetailsDto.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Dtos\Credit\CreditRequestDetailsDto.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,5 +9,6 @@ public class Customer
     public required string Address { get; set; }
     public bool Active { get; set; } = true;
     public required string Email { get; set; }
+    public int CreditScore { get; set; }
 }
 

@@ -76,6 +76,16 @@ builder.Services
         };
     });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("front", policy => policy
+        .WithOrigins(
+            "http://localhost:5173",
+            "http://localhost:8080")
+        .AllowAnyHeader()
+        .AllowAnyMethod());
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -85,7 +95,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("front");
 app.UseAuthentication();
 app.UseAuthorization();
 

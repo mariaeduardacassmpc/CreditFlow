@@ -1,27 +1,39 @@
-﻿using Domain.Entities;
+﻿using Application.Dtos.Credit;
+using Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CreditFlowAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CreditRequestController : ControllerBase
+[Authorize]
+public class CreditRequestController(CreditRequestService service) : ControllerBase
 {
     [HttpPost]
-    public IActionResult Create(CreditRequest request)
+    public async Task<IActionResult> Create(CreateCreditRequestDto dto)
     {
-        return Ok(request);
+        var creditRequest = await service.CreateCreditRequest(dto);
+
+        return Ok(creditRequest);
     }
 
     [HttpGet]
-    public IActionResult GetAll()
+    public async Task<IActionResult> GetAll()
     {
-        return Ok();
+        var creditRequests = await service.GetAllCreditRequests();
+
+        return Ok(creditRequests);
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        return Ok(id);
+        var creditRequest = await service.GetById(id);
+
+        if (creditRequest is null)
+            return NotFound();
+
+        return Ok(creditRequest);
     }
 }

@@ -12,6 +12,8 @@ public class CreditRequest
 
     public decimal MonthlyIncome { get; set; }
 
+    public CreditPurpose Purpose { get; set; }
+
     public int CreditScore { get; set; }
 
     public int EmploymentMonths { get; set; }
@@ -19,4 +21,6 @@ public class CreditRequest
     public string Status { get; set; } = "PENDING";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public CreditAnalysis? CreditAnalysis { get; set; }
 }

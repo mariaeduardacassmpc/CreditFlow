@@ -1,12 +1,20 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Application.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace CreditFlow.Controllers
+namespace CreditFlowAPI.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class DashboardController(
+    DashboardService service) : ControllerBase
 {
-    public class DashboardController : Controller
+    [HttpGet]
+    public async Task<IActionResult> Get()
     {
-        public IActionResult Index()
-        {
-            return View();
-        }
+        var dashboard = await service.GetDashboard();
+
+        return Ok(dashboard);
     }
 }
