@@ -30,6 +30,8 @@ public class AuthService(CreditFlowDbContext context, IPasswordHasher<User> pass
             Active = true
         };
 
+        PasswordValidator.Validate(dto.Password);
+
         user.PasswordHash = passwordHasher.HashPassword(user, dto.Password);
 
         context.Users.Add(user);
@@ -124,6 +126,8 @@ public class AuthService(CreditFlowDbContext context, IPasswordHasher<User> pass
                 "Usuário não encontrado."
             );
         }
+
+        PasswordValidator.Validate(dto.NewPassword);
 
         user.PasswordHash = passwordHasher.HashPassword(
             user,

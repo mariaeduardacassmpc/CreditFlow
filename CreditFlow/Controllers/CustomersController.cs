@@ -38,9 +38,7 @@ public class CustomerController(CustomerService customerService) : ControllerBas
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateCustomer(
-        int id,
-        Customer customer)
+    public async Task<IActionResult> UpdateCustomer(int id, Customer customer)
     {
         var updatedCustomer = await customerService.UpdateCustomer(id, customer);
 
@@ -48,5 +46,13 @@ public class CustomerController(CustomerService customerService) : ControllerBas
             return NotFound();
 
         return Ok(updatedCustomer);
+    }
+
+    [HttpPatch("{id}/active")]
+    public async Task<IActionResult> ToggleActive(int id)
+    {
+        var customer = await customerService.ToggleActive(id);
+
+        return Ok((customer));
     }
 }

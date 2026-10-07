@@ -13,5 +13,6 @@ public class CreditFlowDbContext : DbContext
     }
 
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<CreditRequest> CreditRequests => Set<CreditRequest>();
     public DbSet<User> Users => Set<User>();
 }
