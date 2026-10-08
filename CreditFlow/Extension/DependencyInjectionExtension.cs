@@ -3,6 +3,7 @@ using Application.Services;
 using Domain.Entities;
 using Infrastructure;
 using Infrastructure.ExternalServices;
+using Infrastructure.Messaging;
 using Microsoft.AspNetCore.Identity;
 
 namespace CreditFlowAPI.NovaPasta;
@@ -15,6 +16,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<AuthService>();
         services.AddScoped<CreditRequestService>();
         services.AddScoped<DashboardService>();
+        services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddHttpClient<IEmailService, EmailService>();
         services.AddHttpClient<ICreditScoreProvider, CreditScoreProvider>(client =>
         {

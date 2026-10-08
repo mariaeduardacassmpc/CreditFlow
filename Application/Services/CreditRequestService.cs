@@ -1,14 +1,16 @@
 ﻿using Application.Dtos;
 using Application.Dtos.Credit;
+using Application.Events;
 using Domain.Entities;
 using Infrastructure.Data;
 using Infrastructure.ExternalServices;
+using Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services;
 
-public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditRequestService> logger, ICreditScoreProvider creditScoreProvider)
+public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditRequestService> logger, ICreditScoreProvider creditScoreProvider, IKafkaProducer kafkaProducer)
 {
     public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto)
     {
@@ -20,15 +22,12 @@ public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditReq
         if (customer is null)
             throw new InvalidOperationException("Cliente não encontrado.");
 
-        var creditScore = await creditScoreProvider
-            .GetScoreAsync(customer.Email);
-
         var creditRequest = new CreditRequest
         {
             CustomerId = dto.CustomerId,
             RequestedAmount = dto.RequestedAmount,
             MonthlyIncome = dto.MonthlyIncome,
-            CreditScore = creditScore,
+            CreditScore = customer.CreditScore,
             EmploymentMonths = dto.EmploymentMonths,
             Status = "Pending",
             CreatedAt = DateTime.UtcNow,
@@ -39,10 +38,15 @@ public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditReq
 
         await context.SaveChangesAsync();
 
-        logger.LogInformation(
-            "Solicitação de crédito {CreditRequestId} criada com score {CreditScore}.",
-            creditRequest.CreditRequestId,
-            creditScore);
+        await kafkaProducer.PublishAsync(
+            "credit-request-created",
+            new CreditRequestCreatedEvent
+            {
+                CreditRequestId = creditRequest.CreditRequestId
+            }
+        );
+
+        logger.LogInformation("Solicitação de crédito {CreditRequestId}.", creditRequest.CreditRequestId);
 
         return creditRequest;
     }

@@ -4,10 +4,10 @@ namespace Infrastructure.ExternalServices;
 
 public class CreditScoreProvider(HttpClient httpClient) : ICreditScoreProvider
 {
-    public async Task<int> GetScoreAsync(string email)
+    public async Task<int> GetScoreAsync(string cpf)
     {
         var response = await httpClient.GetAsync(
-            $"api/CreditScore/{Uri.EscapeDataString(email)}");
+            $"api/CreditScore/{Uri.EscapeDataString(cpf)}");
 
         response.EnsureSuccessStatusCode();
 
