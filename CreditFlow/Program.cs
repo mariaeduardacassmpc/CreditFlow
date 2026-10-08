@@ -80,7 +80,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("front", policy => policy
         .WithOrigins(
             "http://localhost:5173",
-            "http://localhost:8080")
+            "http://localhost:8080",
+            "https://lovable.dev/projects/77aa2c05-a9ef-44d6-b190-07f1c52d0fda"
+            )
         .AllowAnyHeader()
         .AllowAnyMethod());
 });

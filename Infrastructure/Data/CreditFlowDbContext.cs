@@ -16,4 +16,13 @@ public class CreditFlowDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<CreditAnalysis> CreditAnalyses => Set<CreditAnalysis>();
     public DbSet<CreditRuleResult> CreditRuleResults => Set<CreditRuleResult>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Customer>()
+            .Property(x => x.BirthDate)
+            .HasColumnType("date");
+    }
 }

@@ -8,5 +8,6 @@ public class CreateCreditRequestDto
     public decimal MonthlyIncome { get; set; }
     public int CreditScore { get; set; }
     public int EmploymentMonths { get; set; }
+    public int TermMonths { get; set; }
     public CreditPurpose Purpose { get; set; }
 }

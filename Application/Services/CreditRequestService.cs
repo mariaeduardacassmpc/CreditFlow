@@ -23,13 +23,15 @@ public class CreditRequestService(ICreditRequestRepository repository, ILogger<C
         var creditRequest = new CreditRequest
         {
             CustomerId = dto.CustomerId,
+            Customer = customer,
             RequestedAmount = dto.RequestedAmount,
             MonthlyIncome = dto.MonthlyIncome,
             CreditScore = customer.CreditScore,
             EmploymentMonths = dto.EmploymentMonths,
             Status = "Pending",
             CreatedAt = DateTime.UtcNow,
-            Purpose = dto.Purpose
+            Purpose = dto.Purpose,
+            TermMonths = dto.TermMonths
         };
 
         var createdCreditRequest = await repository.CreateAsync(creditRequest);

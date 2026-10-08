@@ -50,6 +50,7 @@ public class KafkaConsumer(IServiceScopeFactory scopeFactory, ILogger<KafkaConsu
                     .GetRequiredService<CreditAnalysisService>();
 
                 var creditRequest = await context.CreditRequests
+                    .Include(x => x.Customer)
                     .FirstOrDefaultAsync(x => x.CreditRequestId == eventData.CreditRequestId, stoppingToken);
 
                 if (creditRequest is null)

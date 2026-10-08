@@ -18,6 +18,8 @@ public class CreditRequest
 
     public int EmploymentMonths { get; set; }
 
+    public int TermMonths { get; set; }
+
     public string Status { get; set; } = "PENDING";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

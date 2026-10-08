@@ -85,6 +85,7 @@ public class CustomerService(ICustomerRepository repository, ILogger<CustomerSer
         existingCustomer.Email = customer.Email;
         existingCustomer.Active = customer.Active;
         existingCustomer.Cpf = customer.Cpf;
+        existingCustomer.BirthDate = customer.BirthDate;
 
         await repository.SaveChangesAsync();
 
