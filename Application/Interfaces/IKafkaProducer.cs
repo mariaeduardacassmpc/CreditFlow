@@ -1,4 +1,4 @@
-﻿namespace Infrastructure.Messaging;
+﻿namespace Application.Interfaces;
 
 public interface IKafkaProducer
 {

@@ -1,5 +1,4 @@
-using Application.Interfaces;
-using CreditFlowAPI.NovaPasta;
+using CreditFlowAPI.Extension;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;

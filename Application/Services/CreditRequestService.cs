@@ -1,23 +1,21 @@
 ﻿using Application.Dtos;
 using Application.Dtos.Credit;
-using Application.Events;
+using Application.Interfaces;
 using Domain.Entities;
-using Infrastructure.Data;
-using Infrastructure.ExternalServices;
-using Infrastructure.Messaging;
-using Microsoft.EntityFrameworkCore;
+using Domain.Events;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services;
 
-public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditRequestService> logger, ICreditScoreProvider creditScoreProvider, IKafkaProducer kafkaProducer)
+public class CreditRequestService(ICreditRequestRepository repository, ILogger<CreditRequestService> logger, ICreditScoreProvider creditScoreProvider, IKafkaProducer kafkaProducer)
 {
     public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto)
     {
-        logger.LogInformation("Criando solicitação de crédito para o cliente {CustomerId}.", dto.CustomerId);
+        logger.LogInformation(
+            "Criando solicitação de crédito para o cliente {CustomerId}.",
+            dto.CustomerId);
 
-        var customer = await context.Customers
-            .FindAsync(dto.CustomerId);
+        var customer = await repository.GetCustomerAsync(dto.CustomerId);
 
         if (customer is null)
             throw new InvalidOperationException("Cliente não encontrado.");
@@ -34,58 +32,61 @@ public class CreditRequestService(CreditFlowDbContext context, ILogger<CreditReq
             Purpose = dto.Purpose
         };
 
-        context.CreditRequests.Add(creditRequest);
-
-        await context.SaveChangesAsync();
+        var createdCreditRequest = await repository.CreateAsync(creditRequest);
 
         await kafkaProducer.PublishAsync(
             "credit-request-created",
             new CreditRequestCreatedEvent
             {
-                CreditRequestId = creditRequest.CreditRequestId
-            }
-        );
+                CreditRequestId = createdCreditRequest.CreditRequestId
+            });
 
-        logger.LogInformation("Solicitação de crédito {CreditRequestId}.", creditRequest.CreditRequestId);
+        logger.LogInformation(
+            "Solicitação de crédito {CreditRequestId} criada.",
+            createdCreditRequest.CreditRequestId);
 
-        return creditRequest;
+        return createdCreditRequest;
     }
 
     public async Task<IEnumerable<CreditRequestListDto>> GetAllCreditRequests()
     {
-        logger.LogInformation("Buscando todas solicitações de crédito.");
+        logger.LogInformation(
+            "Buscando todas solicitações de crédito.");
 
-        return await context.CreditRequests
-            .Select(x => new CreditRequestListDto
-            {
-                CreditRequestId = x.CreditRequestId,
-                CustomerId = x.CustomerId,
-                RequestedAmount = x.RequestedAmount,
-                CreatedAt = x.CreatedAt,
-                Status = x.Status
-            })
-            .ToListAsync();
+        var creditRequests = await repository.GetAllAsync();
+
+        return creditRequests.Select(x => new CreditRequestListDto
+        {
+            CreditRequestId = x.CreditRequestId,
+            CustomerId = x.CustomerId,
+            RequestedAmount = x.RequestedAmount,
+            CreatedAt = x.CreatedAt,
+            Status = x.Status
+        });
     }
 
     public async Task<CreditRequestDetailsDto?> GetById(int id)
     {
-        logger.LogInformation("Buscando solicitação de crédito por Id.");
+        logger.LogInformation(
+            "Buscando solicitação de crédito por Id.");
 
-        return await context.CreditRequests
-            .Where(x => x.CreditRequestId == id)
-            .Select(x => new CreditRequestDetailsDto
-            {
-                CreditRequestId = x.CreditRequestId,
-                CustomerId = x.CustomerId,
-                CustomerName = x.Customer.Name,
-                CustomerEmail = x.Customer.Email,
-                RequestedAmount = x.RequestedAmount,
-                MonthlyIncome = x.MonthlyIncome,
-                CreditScore = x.CreditScore,
-                EmploymentMonths = x.EmploymentMonths,
-                Status = x.Status,
-                CreatedAt = x.CreatedAt
-            })
-            .FirstOrDefaultAsync();
+        var creditRequest = await repository.GetByIdAsync(id);
+
+        if (creditRequest is null)
+            return null;
+
+        return new CreditRequestDetailsDto
+        {
+            CreditRequestId = creditRequest.CreditRequestId,
+            CustomerId = creditRequest.CustomerId,
+            CustomerName = creditRequest.Customer.Name,
+            CustomerEmail = creditRequest.Customer.Email,
+            RequestedAmount = creditRequest.RequestedAmount,
+            MonthlyIncome = creditRequest.MonthlyIncome,
+            CreditScore = creditRequest.CreditScore,
+            EmploymentMonths = creditRequest.EmploymentMonths,
+            Status = creditRequest.Status,
+            CreatedAt = creditRequest.CreatedAt
+        };
     }
 }

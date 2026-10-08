@@ -1,24 +1,19 @@
-﻿using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Application.Dtos.Dashboard;
+﻿using Application.Dtos.Dashboard;
+using Application.Interfaces;
 
 namespace Application.Services;
 
-public class DashboardService(CreditFlowDbContext context)
+public class DashboardService(IDashboardRepository repository)
 {
     public async Task<CreditDashboardDto> GetDashboard()
     {
-        var totalRequests = await context.CreditRequests
-            .CountAsync();
+        var totalRequests = await repository.GetTotalRequestsAsync();
 
-        var requestsInAnalysis = await context.CreditRequests
-            .CountAsync(x => x.Status == "Pending");
+        var requestsInAnalysis = await repository.GetRequestsInAnalysisAsync();
 
-        var approvedRequests = await context.CreditRequests
-            .CountAsync(x => x.Status == "Aprovado");
+        var approvedRequests = await repository.GetApprovedRequestsAsync();
 
-        var rejectedRequests = await context.CreditRequests
-            .CountAsync(x => x.Status == "Reprovado");
+        var rejectedRequests = await repository.GetRejectedRequestsAsync();
 
         return new CreditDashboardDto
         {

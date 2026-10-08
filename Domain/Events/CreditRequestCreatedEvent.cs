@@ -1,4 +1,4 @@
-﻿namespace Application.Events;
+﻿namespace Domain.Events;
 
 public class CreditRequestCreatedEvent
 {

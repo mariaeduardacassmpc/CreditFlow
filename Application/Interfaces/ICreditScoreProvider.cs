@@ -1,4 +1,4 @@
-﻿namespace Infrastructure.ExternalServices;
+﻿namespace Application.Interfaces;
 
 public interface ICreditScoreProvider
 {

@@ -5,6 +5,7 @@ public class CreditAnalysis
     public int CreditAnalysisId { get; set; }
 
     public int CreditRequestId { get; set; }
+
     public CreditRequest CreditRequest { get; set; } = null!;
 
     public string Status { get; set; } = string.Empty;

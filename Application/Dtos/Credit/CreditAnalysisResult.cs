@@ -1,5 +1,4 @@
 ﻿using Application.Dtos.Credit;
-using Application.Dtos.CreditRequest;
 
 namespace Application.Dtos.CreditRequest;
 

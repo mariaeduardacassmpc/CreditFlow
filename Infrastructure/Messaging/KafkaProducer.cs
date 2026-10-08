@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Confluent.Kafka;
+using Application.Interfaces;
 
 namespace Infrastructure.Messaging;
 
