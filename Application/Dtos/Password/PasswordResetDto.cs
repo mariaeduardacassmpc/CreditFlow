@@ -1,4 +1,4 @@
-﻿namespace Application.Dtos.Auth;
+﻿namespace Application.Dtos.Password;
 
 public class PasswordResetDto
 {

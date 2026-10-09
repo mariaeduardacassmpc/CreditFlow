@@ -1,12 +1,17 @@
 ﻿using Application.Dtos.Auth;
-using Application.Services;
+using Application.Dtos.Password;
+using Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CreditFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController(AuthService authService) : ControllerBase
+public class AuthController(
+    IAuthService authService,
+    IPasswordResetService passwordResetService,
+    ITwoFactorAuthService twoFactorAuthService
+) : ControllerBase
 {
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDto dto)
@@ -24,10 +29,18 @@ public class AuthController(AuthService authService) : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("verify-2fa")]
+    public async Task<IActionResult> VerifyTwoFactor(VerifyTwoFactorDto dto)
+    {
+        var response = await twoFactorAuthService.VerifyCode(dto);
+
+        return Ok(response);
+    }
+
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
     {
-        await authService.ForgotPassword(dto);
+        await passwordResetService.ForgotPassword(dto);
 
         return Ok();
     }
@@ -35,7 +48,7 @@ public class AuthController(AuthService authService) : ControllerBase
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(PasswordResetDto dto)
     {
-        await authService.ResetPassword(dto);
+        await passwordResetService.ResetPassword(dto);
 
         return Ok();
     }

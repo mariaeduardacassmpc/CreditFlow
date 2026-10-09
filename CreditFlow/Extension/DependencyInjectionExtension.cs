@@ -13,12 +13,13 @@ public static class DependencyInjectionExtensions
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddScoped<AuthService>();
+        services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<CustomerService>();
         services.AddScoped<DashboardService>();
         services.AddScoped<CreditAnalysisService>();
         services.AddScoped<CreditRequestService>();
-
+        services.AddScoped<ITwoFactorAuthService, TwoFactorAuthService>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICreditRequestRepository, CreditRequestRepository>();
@@ -26,7 +27,10 @@ public static class DependencyInjectionExtensions
         services.AddScoped<CreditAnalysisService>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
-        services.AddHostedService<KafkaConsumer>();
+
+        services.AddHostedService<KafkaConsumer>(); 
+        services.AddHostedService<KafkaEmailConsumer>();
+
         services.AddSingleton<IKafkaProducer, KafkaProducer>();
         services.AddHttpClient<IEmailService, EmailService>();
         services.AddHttpClient<ICreditScoreProvider, CreditScoreProvider>(client =>

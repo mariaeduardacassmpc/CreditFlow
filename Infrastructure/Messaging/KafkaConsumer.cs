@@ -10,7 +10,10 @@ using Domain.Events;
 
 namespace Infrastructure.Messaging;
 
-public class KafkaConsumer(IServiceScopeFactory scopeFactory, ILogger<KafkaConsumer> logger) : BackgroundService
+public class KafkaConsumer(
+    IServiceScopeFactory scopeFactory, 
+    ILogger<KafkaConsumer> logger
+) : BackgroundService
 {
     private readonly ConsumerConfig config = new()
     {
@@ -55,7 +58,8 @@ public class KafkaConsumer(IServiceScopeFactory scopeFactory, ILogger<KafkaConsu
 
                 if (creditRequest is null)
                 {
-                    logger.LogWarning("Solicitação {CreditRequestId} não encontrada.", eventData.CreditRequestId);
+                    logger.LogWarning("Solicitação {CreditRequestId} não encontrada.", 
+                        eventData.CreditRequestId);
                     continue;
                 }
 
@@ -83,7 +87,8 @@ public class KafkaConsumer(IServiceScopeFactory scopeFactory, ILogger<KafkaConsu
 
                 await context.SaveChangesAsync(stoppingToken);
 
-                logger.LogInformation("Análise da solicitação {CreditRequestId} concluída. Status: {Status}", creditRequest.CreditRequestId, analysisResult.Status);
+                logger.LogInformation("Análise da solicitação {CreditRequestId} concluída. Status: {Status}",
+                    creditRequest.CreditRequestId, analysisResult.Status);
             }
         }
         catch (OperationCanceledException)
