@@ -3,6 +3,8 @@ using Application.Interfaces;
 using Domain.Entities;
 using Domain.Events;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -12,9 +14,27 @@ public class TwoFactorAuthService(
     IUserRepository userRepository,
     ITokenService tokenService,
     IKafkaProducer kafkaProducer,
-    IMemoryCache cache
+    IMemoryCache cache,
+    IConfiguration configuration,
+    ILogger<TwoFactorAuthService> logger
 ) : ITwoFactorAuthService
 {
+    private string GetSecret()
+    {
+        var secret = configuration["TwoFactor:Secret"];
+        if (string.IsNullOrEmpty(secret))
+            throw new InvalidOperationException("TwoFactor secret not configured.");
+        return secret;
+    }
+
+    private static string ComputeHmacHex(string challengeId, string code, byte[] key)
+    {
+        using var hmac = new HMACSHA256(key);
+        var data = Encoding.UTF8.GetBytes($"{challengeId}:{code}");
+        var hash = hmac.ComputeHash(data);
+        return Convert.ToHexString(hash);
+    }
+
     public async Task<LoginChallengeResponseDto> CreateChallenge(
         User user)
     {
@@ -27,14 +47,14 @@ public class TwoFactorAuthService(
 
         var cacheKey = $"two-factor:{challengeId}";
 
+        var secretKey = Encoding.UTF8.GetBytes(GetSecret());
+
         cache.Set(
             cacheKey,
             new TwoFactorChallenge
             {
                 Email = user.Email,
-                CodeHash = Convert.ToHexString(
-                    SHA256.HashData(
-                        Encoding.UTF8.GetBytes($"{challengeId}:{code}"))),
+                CodeHash = ComputeHmacHex(challengeId, code, secretKey),
                 Attempts = 0
             },
             TimeSpan.FromMinutes(5));
@@ -49,8 +69,9 @@ public class TwoFactorAuthService(
                     Code = code
                 });
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Falha ao publicar evento de 2FA para {Email}", user.Email);
             cache.Remove(cacheKey);
             throw;
         }
@@ -80,10 +101,8 @@ public class TwoFactorAuthService(
             throw new InvalidOperationException("Código inválido ou expirado.");
         }
 
-        var suppliedHash = Convert.ToHexString(
-            SHA256.HashData(
-                Encoding.UTF8.GetBytes(
-                    $"{dto.ChallengeId}:{dto.Code}")));
+        var secretKey = Encoding.UTF8.GetBytes(GetSecret());
+        var suppliedHash = ComputeHmacHex(dto.ChallengeId, dto.Code, secretKey);
 
         var expectedBytes = Convert.FromHexString(challenge.CodeHash);
         var suppliedBytes = Convert.FromHexString(suppliedHash);
@@ -91,9 +110,17 @@ public class TwoFactorAuthService(
         if (!CryptographicOperations.FixedTimeEquals(expectedBytes, suppliedBytes))
         {
             challenge.Attempts++;
+            logger.LogWarning("Falha 2FA para {Email}. Tentativas: {Attempts}", challenge.Email, challenge.Attempts);
 
             if (challenge.Attempts >= 5)
+            {
                 cache.Remove(cacheKey);
+                logger.LogWarning("Bloqueio temporário aplicado para {Email}", challenge.Email);
+            }
+            else
+            {
+                cache.Set(cacheKey, challenge, TimeSpan.FromMinutes(5));
+            }
 
             throw new InvalidOperationException("Código inválido ou expirado.");
         }

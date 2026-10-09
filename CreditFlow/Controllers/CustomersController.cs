@@ -1,5 +1,5 @@
-﻿using Application.Services;
-using Domain.Entities;
+﻿using Application.Dtos.Customers;
+using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,28 +8,28 @@ namespace CreditFlow.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/[controller]")]
-public class CustomerController(CustomerService customerService) : ControllerBase
+public class CustomerController(ICustomerService customerService) : ControllerBase
 {
     [HttpPost]
-    public async Task<IActionResult> CreateCustomer(Customer customer)
+    public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerDto dto, CancellationToken cancellationToken)
     {
-        var createdCustomer = await customerService.CreateCustomer(customer);
+        var createdCustomer = await customerService.CreateCustomer(dto, cancellationToken);
 
-        return Ok(createdCustomer);
+        return CreatedAtAction(nameof(GetById), new { id = createdCustomer.CustomerId }, createdCustomer);
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var customers = await customerService.GetAllCustomers();
+        var customers = await customerService.GetAllCustomers( cancellationToken);
 
         return Ok(customers);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
-        var customer = await customerService.GetById(id);
+        var customer = await customerService.GetById(id, cancellationToken);
 
         if (customer is null)
             return NotFound();
@@ -37,10 +37,10 @@ public class CustomerController(CustomerService customerService) : ControllerBas
         return Ok(customer);
     }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateCustomer(int id, Customer customer)
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateCustomer(int id, [FromBody] UpdateCustomerDto dto, CancellationToken cancellationToken)
     {
-        var updatedCustomer = await customerService.UpdateCustomer(id, customer);
+        var updatedCustomer = await customerService.UpdateCustomer(id, dto, cancellationToken);
 
         if (updatedCustomer is null)
             return NotFound();
@@ -48,11 +48,14 @@ public class CustomerController(CustomerService customerService) : ControllerBas
         return Ok(updatedCustomer);
     }
 
-    [HttpPatch("{id}/active")]
-    public async Task<IActionResult> ToggleActive(int id)
+    [HttpPatch("{id:int}/active")]
+    public async Task<IActionResult> ToggleActive(int id, CancellationToken cancellationToken)
     {
-        var customer = await customerService.ToggleActive(id);
+        var customer = await customerService.ToggleActive(id, cancellationToken);
 
-        return Ok((customer));
+        if (customer is null)
+            return NotFound();
+
+        return Ok(customer);
     }
 }

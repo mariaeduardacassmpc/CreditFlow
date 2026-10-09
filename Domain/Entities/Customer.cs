@@ -7,8 +7,8 @@ public class Customer
     public required string Phone { get; set; }
     public bool Active { get; set; } = true;
     public required string Email { get; set; }
-    public required DateTime BirthDate { get; set; }
+    public DateTime BirthDate { get; set; }
     public int CreditScore { get; set; }
-    public required string Cpf { get; set; } = string.Empty;
+    public required string Cpf { get; set; }
 }
 

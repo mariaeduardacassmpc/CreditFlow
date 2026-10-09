@@ -7,31 +7,31 @@ namespace Infrastructure.Repositories;
 
 public class CustomerRepository(CreditFlowDbContext context) : ICustomerRepository
 {
-    public async Task<Customer?> GetByIdAsync(int id)
+    public async Task<Customer?> GetByIdAsync(int id, CancellationToken cancellationToken)
     {
         return await context.Customers
-            .FirstOrDefaultAsync(x => x.CustomerId == id);
+            .FirstOrDefaultAsync(x => x.CustomerId == id, cancellationToken);
     }
 
-    public async Task<IEnumerable<Customer>> GetAllAsync()
+    public async Task<IEnumerable<Customer>> GetAllAsync(CancellationToken cancellationToken)
     {
         return await context.Customers
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<Customer?> GetByEmailAsync(string email)
+    public async Task<Customer?> GetByEmailAsync(string email, CancellationToken cancellationToken)
     {
         return await context.Customers
-            .FirstOrDefaultAsync(x => x.Email == email);
+            .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
     }
 
-    public async Task AddAsync(Customer customer)
+    public async Task AddAsync(Customer customer, CancellationToken cancellationToken)
     {
-        await context.Customers.AddAsync(customer);
+        await context.Customers.AddAsync(customer, cancellationToken);
     }
 
-    public async Task SaveChangesAsync()
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
-        await context.SaveChangesAsync();
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

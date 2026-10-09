@@ -1,11 +1,14 @@
 ﻿using Application.Interfaces;
 using Application.Services;
+using Application.Validators;
 using Domain.Entities;
 using Infrastructure;
 using Infrastructure.ExternalServices;
 using Infrastructure.Messaging;
 using Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 
 namespace CreditFlowAPI.Extension;
 
@@ -27,7 +30,8 @@ public static class DependencyInjectionExtensions
         services.AddScoped<CreditAnalysisService>();
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
-
+        services.AddFluentValidationAutoValidation();
+        services.AddValidatorsFromAssemblyContaining<CreateCustomerValidator>();
         services.AddHostedService<KafkaConsumer>(); 
         services.AddHostedService<KafkaEmailConsumer>();
 

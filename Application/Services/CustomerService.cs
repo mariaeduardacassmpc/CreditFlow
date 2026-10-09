@@ -1,116 +1,80 @@
-﻿using Application.Interfaces;
+﻿using Application.Dtos.Customers;
+using Application.Interfaces;
 using Domain.Entities;
-using Microsoft.Extensions.Logging;
+using Application.Exceptions;
 
 namespace Application.Services;
 
-public class CustomerService(ICustomerRepository repository, ILogger<CustomerService> logger, ICreditScoreProvider creditScoreProvider)
+public class CustomerService(ICustomerRepository repository, ICreditScoreProvider creditScoreProvider, IMapper mapper) : ICustomerService
 {
-    public async Task<Customer> CreateCustomer(Customer customer)
+    public async Task<Customer> CreateCustomer(CreateCustomerDto dto, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Criando cliente.");
+        cancellationToken.ThrowIfCancellationRequested();
 
-        var creditScore = await creditScoreProvider.GetScoreAsync(customer.Cpf);
-
-        logger.LogInformation("Score retornado para o CPF {Cpf}: {CreditScore}", customer.Cpf, creditScore);
-
-        customer.CreditScore = creditScore;
-
-        var existingCustomer = await repository.GetByEmailAsync(customer.Email);
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var existingCustomer = await repository.GetByEmailAsync(email, cancellationToken);
 
         if (existingCustomer is not null)
-        {
-            logger.LogWarning("Tentativa de criar cliente duplicado. Email: {Email}", customer.Email);
+            throw new BusinessConflictException("E-mail já cadastrado.");
 
-            throw new InvalidOperationException("E-mail já existe.");
-        }
+        var customer = mapper.Map<Customer>(dto);
+        customer.CreditScore = await creditScoreProvider.GetScoreAsync(customer.Cpf);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        await repository.AddAsync(customer);
+        customer.Active = true;
 
-        await repository.SaveChangesAsync();
-
-        logger.LogInformation("Cliente criado com sucesso. Id: {CustomerId}", customer.CustomerId);
-
-        return customer;
-    }
-
-    public async Task<IEnumerable<Customer>> GetAllCustomers()
-    {
-        logger.LogInformation("Buscando todos os clientes.");
-
-        return await repository.GetAllAsync();
-    }
-
-    public async Task<Customer?> GetById(int id)
-    {
-        logger.LogInformation("Buscando cliente por Id: {CustomerId}", id);
-
-        var customer = await repository.GetByIdAsync(id);
-
-        if (customer is null)
-        {
-            logger.LogWarning("Cliente não encontrado. Id: {CustomerId}", id);
-
-            throw new InvalidOperationException($"Cliente com Id {id} não encontrado.");
-        }
+        await repository.AddAsync(customer, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
 
         return customer;
     }
 
-    public async Task<Customer?> UpdateCustomer(int id, Customer customer)
+    public async Task<IEnumerable<Customer>> GetAllCustomers(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Atualizando cliente. Id: {CustomerId}", id);
+        return await repository.GetAllAsync(cancellationToken);
+    }
 
-        var existingCustomer = await repository.GetByIdAsync(id);
+    public async Task<Customer?> GetById(int id, CancellationToken cancellationToken)
+    {
+        return await repository.GetByIdAsync(id, cancellationToken);
+    }
+
+    public async Task<Customer?> UpdateCustomer(int id, UpdateCustomerDto dto, CancellationToken cancellationToken)
+    {
+        var existingCustomer = await repository.GetByIdAsync(id, cancellationToken);
 
         if (existingCustomer is null)
-        {
-            logger.LogWarning("Cliente não encontrado para atualização. Id: {CustomerId}", id);
+            return null;
 
-            throw new InvalidOperationException($"Cliente com Id {id} não encontrado.");
-        }
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var customerWithEmail = await repository.GetByEmailAsync(email, cancellationToken);
 
-        var emailExists = await repository.GetByEmailAsync(customer.Email);
+        if (customerWithEmail is not null && customerWithEmail.CustomerId != id)
+            throw new BusinessConflictException("E-mail já cadastrado.");
 
-        if (emailExists is not null &&
-            emailExists.CustomerId != id)
-        {
-            logger.LogWarning("Tentativa de atualizar cliente com e-mail já cadastrado. Email: {Email}", customer.Email);
+        var updatedData = mapper.Map<Customer>(dto);
 
-            throw new InvalidOperationException("E-mail já existe.");
-        }
+        existingCustomer.Name = updatedData.Name;
+        existingCustomer.Phone = updatedData.Phone;
+        existingCustomer.Email = email;
+        existingCustomer.Cpf = updatedData.Cpf;
+        existingCustomer.BirthDate = updatedData.BirthDate;
 
-        existingCustomer.Name = customer.Name;
-        existingCustomer.Phone = customer.Phone;
-        existingCustomer.Email = customer.Email;
-        existingCustomer.Active = customer.Active;
-        existingCustomer.Cpf = customer.Cpf;
-        existingCustomer.BirthDate = customer.BirthDate;
-
-        await repository.SaveChangesAsync();
-
-        logger.LogInformation("Cliente atualizado com sucesso. Id: {CustomerId}", id);
+        await repository.SaveChangesAsync(cancellationToken);
 
         return existingCustomer;
     }
 
-    public async Task<Customer> ToggleActive(int id)
+    public async Task<Customer?> ToggleActive(int id, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Alterando status do cliente. Id: {CustomerId}", id);
-
-        var customer = await repository.GetByIdAsync(id);
+        var customer = await repository.GetByIdAsync(id, cancellationToken);
 
         if (customer is null)
-        {
-            logger.LogWarning("Cliente não encontrado para alteração de status. Id: {CustomerId}", id);
-            throw new InvalidOperationException($"Cliente com Id {id} não encontrado.");
-        }
+            return null;
 
         customer.Active = !customer.Active;
 
-        await repository.SaveChangesAsync();
-
-        logger.LogInformation("Status do cliente alterado. Id: {CustomerId}, Ativo: {Active}", id, customer.Active);
+        await repository.SaveChangesAsync(cancellationToken);
 
         return customer;
     }
