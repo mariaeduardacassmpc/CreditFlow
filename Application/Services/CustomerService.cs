@@ -1,81 +1,121 @@
-﻿using Application.Dtos.Customers;
+﻿using Application.Common;
+using Application.Dtos.Customers;
 using Application.Interfaces;
 using Domain.Entities;
-using Application.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services;
 
-public class CustomerService(ICustomerRepository repository, ICreditScoreProvider creditScoreProvider, IMapper mapper) : ICustomerService
+public class CustomerService(
+    ICustomerRepository repository,
+    ICreditScoreProvider creditScoreProvider,
+    ILogger<CustomerService> logger
+) : ICustomerService
 {
-    public async Task<Customer> CreateCustomer(CreateCustomerDto dto, CancellationToken cancellationToken)
+    private const int MaxPageSize = 100;
+
+    public async Task<CustomerResponseDto> CreateCustomer(CreateCustomerDto dto, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var email = InputNormalizer.Email(dto.Email);
+        var cpf = InputNormalizer.Cpf(dto.Cpf);
 
-        var email = dto.Email.Trim().ToLowerInvariant();
-        var existingCustomer = await repository.GetByEmailAsync(email, cancellationToken);
+        await EnsureUniqueAsync(email, cpf, currentId: null, cancellationToken);
 
-        if (existingCustomer is not null)
-            throw new BusinessConflictException("E-mail já cadastrado.");
+        var creditScore = await creditScoreProvider.GetScoreAsync(cpf, cancellationToken);
 
-        var customer = mapper.Map<Customer>(dto);
-        customer.CreditScore = await creditScoreProvider.GetScoreAsync(customer.Cpf);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        customer.Active = true;
+        var customer = Customer.Create(
+            InputNormalizer.Text(dto.Name),
+            InputNormalizer.Text(dto.Phone),
+            email,
+            cpf,
+            dto.BirthDate,
+            creditScore);
 
         await repository.AddAsync(customer, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
-        return customer;
+        logger.LogInformation("Cliente criado. CustomerId: {CustomerId}", customer.CustomerId);
+
+        return customer.ToResponse();
     }
 
-    public async Task<IEnumerable<Customer>> GetAllCustomers(CancellationToken cancellationToken)
+    public async Task<PagedResult<CustomerResponseDto>> GetAllCustomers(int page, int pageSize, CancellationToken cancellationToken)
     {
-        return await repository.GetAllAsync(cancellationToken);
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var (items, totalCount) = await repository.GetPagedAsync(page, pageSize, cancellationToken);
+
+        return new PagedResult<CustomerResponseDto>(items.Select(c => c.ToResponse()).ToList(), page, pageSize, totalCount);
     }
 
-    public async Task<Customer?> GetById(int id, CancellationToken cancellationToken)
+    public async Task<CustomerResponseDto?> GetById(int id, CancellationToken cancellationToken)
     {
-        return await repository.GetByIdAsync(id, cancellationToken);
+        var customer = await repository.GetByIdAsync(id, cancellationToken);
+
+        return customer?.ToResponse();
     }
 
-    public async Task<Customer?> UpdateCustomer(int id, UpdateCustomerDto dto, CancellationToken cancellationToken)
-    {
-        var existingCustomer = await repository.GetByIdAsync(id, cancellationToken);
-
-        if (existingCustomer is null)
-            return null;
-
-        var email = dto.Email.Trim().ToLowerInvariant();
-        var customerWithEmail = await repository.GetByEmailAsync(email, cancellationToken);
-
-        if (customerWithEmail is not null && customerWithEmail.CustomerId != id)
-            throw new BusinessConflictException("E-mail já cadastrado.");
-
-        var updatedData = mapper.Map<Customer>(dto);
-
-        existingCustomer.Name = updatedData.Name;
-        existingCustomer.Phone = updatedData.Phone;
-        existingCustomer.Email = email;
-        existingCustomer.Cpf = updatedData.Cpf;
-        existingCustomer.BirthDate = updatedData.BirthDate;
-
-        await repository.SaveChangesAsync(cancellationToken);
-
-        return existingCustomer;
-    }
-
-    public async Task<Customer?> ToggleActive(int id, CancellationToken cancellationToken)
+    public async Task<CustomerResponseDto?> UpdateCustomer(int id, UpdateCustomerDto dto, CancellationToken cancellationToken)
     {
         var customer = await repository.GetByIdAsync(id, cancellationToken);
 
         if (customer is null)
             return null;
 
-        customer.Active = !customer.Active;
+        var email = InputNormalizer.Email(dto.Email);
+        var cpf = InputNormalizer.Cpf(dto.Cpf);
+
+        await EnsureUniqueAsync(email, cpf, currentId: id, cancellationToken);
+
+        customer.Update(
+            InputNormalizer.Text(dto.Name),
+            InputNormalizer.Text(dto.Phone),
+            email,
+            cpf,
+            dto.BirthDate);
 
         await repository.SaveChangesAsync(cancellationToken);
 
-        return customer;
+        logger.LogInformation("Cliente atualizado. CustomerId: {CustomerId}", id);
+
+        return customer.ToResponse();
+    }
+
+    public async Task<CustomerResponseDto?> SetActive(int id, bool active, CancellationToken cancellationToken)
+    {
+        var customer = await repository.GetByIdAsync(id, cancellationToken);
+
+        if (customer is null)
+            return null;
+
+        if (customer.Active == active)
+            return customer.ToResponse();
+
+        customer.SetActive(active);
+        await repository.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Status do cliente alterado. CustomerId: {CustomerId}, Active: {Active}", id, active);
+
+        return customer.ToResponse();
+    }
+
+    private async Task EnsureUniqueAsync(string email, string cpf, int? currentId, CancellationToken cancellationToken)
+    {
+        var byEmail = await repository.GetByEmailAsync(email, cancellationToken);
+
+        if (byEmail is not null && byEmail.CustomerId != currentId)
+        {
+            logger.LogWarning("Conflito: e-mail já pertence ao cliente {ConflictingCustomerId}.", byEmail.CustomerId);
+            throw new InvalidOperationException("E-mail já cadastrado.");
+        }
+
+        var byCpf = await repository.GetByCpfAsync(cpf, cancellationToken);
+
+        if (byCpf is not null && byCpf.CustomerId != currentId)
+        {
+            logger.LogWarning("Conflito: CPF já pertence ao cliente {ConflictingCustomerId}.", byCpf.CustomerId);
+            throw new InvalidOperationException("CPF já cadastrado.");
+        }
     }
 }

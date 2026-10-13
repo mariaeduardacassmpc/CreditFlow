@@ -19,13 +19,14 @@ public class UpdateCustomerValidator : AbstractValidator<UpdateCustomerDto>
             .NotEmpty().EmailAddress().MaximumLength(254);
 
         RuleFor(x => x.BirthDate)
-            .NotNull()
-            .Must(date => date.HasValue && date.Value.Date <= DateTime.Now.Date)
-            .WithMessage("A data de nascimento é obrigatória e não pode ser futura.");
+          .NotNull()
+          .Must(date => date <= DateOnly.FromDateTime(DateTime.Today))
+          .WithMessage("A data de nascimento é obrigatória e não pode ser futura.");
 
         RuleFor(x => x.Cpf)
-            .NotEmpty()
-            .Matches(@"^\d{11}$")
-            .WithMessage("O CPF deve conter exatamente 11 dígitos.");
+          .NotEmpty()
+          .WithMessage("O CPF é obrigatório.")
+          .Must(CpfValidator.IsValid)
+          .WithMessage("Informe um CPF válido.");
     }
 }

@@ -81,8 +81,7 @@ public class KafkaConsumer(
                     });
                 }
 
-                creditRequest.Status = analysisResult.Status;
-
+                creditRequest.Status = analysisResult.Status.ToString();
                 context.CreditAnalyses.Add(analysis);
 
                 await context.SaveChangesAsync(stoppingToken);

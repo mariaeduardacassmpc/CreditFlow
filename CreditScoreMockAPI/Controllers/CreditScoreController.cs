@@ -1,22 +1,22 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-namespace CreditScoreMockAPI.Controllers;
+namespace CreditFlow.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class CreditScoreController : ControllerBase
 {
-    [HttpGet("{email}")]
-    public IActionResult GetScore(string email)
+    [HttpGet("{cpf}")]
+    public IActionResult GetScore(string cpf)
     {
         var scores = new Dictionary<string, int>
         {
-            ["12345678900"] = 742,
-            ["98765432100"] = 650,
-            ["11122233344"] = 480
+            ["52998224725"] = 742,
+            ["11144477735"] = 650,
+            ["93541134780"] = 480
         };
 
-        if (!scores.TryGetValue(email, out var score))
+        if (!scores.TryGetValue(cpf, out var score))
         {
             return NotFound(new
             {
@@ -24,9 +24,6 @@ public class CreditScoreController : ControllerBase
             });
         }
 
-        return Ok(new
-        {
-            score
-        });
+        return Ok(new { score });
     }
 }

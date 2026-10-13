@@ -7,8 +7,10 @@ public class CreditAnalysisService
     public CreditAnalysisResult Analyze(CreditRequest creditRequest)
     {
         var riskLevel = CalculateRiskLevel(creditRequest);
-        var age = CalculateAge(creditRequest.Customer.BirthDate,DateTime.UtcNow);
-        var ageAtEndOfContract = CalculateAge(creditRequest.Customer.BirthDate, DateTime.UtcNow.AddMonths(creditRequest.TermMonths));
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var age = CalculateAge(creditRequest.Customer.BirthDate, today);
+        var contractEndDate = today.AddMonths(creditRequest.TermMonths);
+        var ageAtEndOfContract = CalculateAge(creditRequest.Customer.BirthDate,contractEndDate);
 
         var rules = new List<CreditRuleResultDto>
         {
@@ -70,7 +72,7 @@ public class CreditAnalysisService
 
         return new CreditAnalysisResult
         {
-            Status = approved ? "Aprovado" : "Reprovado",
+            Status = approved ? Status.Approved : Status.Rejected,
             Rules = rules
         };
     }
@@ -124,11 +126,11 @@ public class CreditAnalysisService
         };
     }
 
-    private int CalculateAge(DateTime birthDate, DateTime referenceDate)
+    private int CalculateAge(DateOnly birthDate, DateOnly referenceDate)
     {
         var age = referenceDate.Year - birthDate.Year;
 
-        if (referenceDate.Date < birthDate.Date.AddYears(age))
+        if (referenceDate < birthDate.AddYears(age))
             age--;
 
         return age;

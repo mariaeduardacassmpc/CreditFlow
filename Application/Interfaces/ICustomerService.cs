@@ -1,13 +1,13 @@
-﻿using Application.Dtos.Customers;
-using Domain.Entities;
+﻿using Application.Common;
+using Application.Dtos.Customers;
 
 namespace Application.Interfaces;
 
 public interface ICustomerService
 {
-    Task<Customer> CreateCustomer(CreateCustomerDto dto, CancellationToken cancellationToken);
-    Task<IEnumerable<Customer>> GetAllCustomers(CancellationToken cancellationToken);
-    Task<Customer?> GetById(int id, CancellationToken cancellationToken);
-    Task<Customer?> UpdateCustomer(int id, UpdateCustomerDto dto, CancellationToken cancellationToken);
-    Task<Customer?> ToggleActive(int id, CancellationToken cancellationToken);
+    Task<CustomerResponseDto> CreateCustomer(CreateCustomerDto dto, CancellationToken cancellationToken);
+    Task<PagedResult<CustomerResponseDto>> GetAllCustomers(int page, int pageSize, CancellationToken cancellationToken);
+    Task<CustomerResponseDto?> GetById(int id, CancellationToken cancellationToken);
+    Task<CustomerResponseDto?> UpdateCustomer(int id, UpdateCustomerDto dto, CancellationToken cancellationToken);
+    Task<CustomerResponseDto?> SetActive(int id, bool active, CancellationToken cancellationToken);
 }

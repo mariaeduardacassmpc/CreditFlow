@@ -5,7 +5,7 @@ namespace Infrastructure.ExternalServices;
 
 public class CreditScoreProvider(HttpClient httpClient) : ICreditScoreProvider
 {
-    public async Task<int> GetScoreAsync(string cpf)
+    public async Task<int> GetScoreAsync(string cpf, CancellationToken cancellation)
     {
         var response = await httpClient.GetAsync(
             $"api/CreditScore/{Uri.EscapeDataString(cpf)}");

@@ -23,8 +23,14 @@ public class CreateCustomerValidator : AbstractValidator<CreateCustomerDto>
             .WithMessage("Informe um telefone brasileiro válido com DDD.");
 
         RuleFor(x => x.BirthDate)
-            .NotEmpty()
-            .Must(date => date.HasValue && date.Value.Date <= DateTime.Now.Date)
-            .WithMessage("A data de nascimento é obrigatória e não pode ser futura.");
+           .NotNull()
+           .Must(date => date <= DateOnly.FromDateTime(DateTime.Today))
+           .WithMessage("A data de nascimento é obrigatória e não pode ser futura.");
+
+        RuleFor(x => x.Cpf)
+          .NotEmpty()
+          .WithMessage("O CPF é obrigatório.")
+          .Must(CpfValidator.IsValid)
+          .WithMessage("Informe um CPF válido.");
     }
 }

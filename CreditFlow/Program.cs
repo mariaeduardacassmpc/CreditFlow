@@ -94,10 +94,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.UseExceptionMapping();
 app.UseHttpsRedirection();
 app.UseCors("front");
-app.UseMiddleware<ExceptionMappingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

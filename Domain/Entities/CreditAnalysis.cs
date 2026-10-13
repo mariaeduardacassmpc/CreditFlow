@@ -8,7 +8,7 @@ public class CreditAnalysis
 
     public CreditRequest CreditRequest { get; set; } = null!;
 
-    public string Status { get; set; } = string.Empty;
+    public Status Status { get; set; } 
 
     public DateTime AnalyzedAt { get; set; }
 
