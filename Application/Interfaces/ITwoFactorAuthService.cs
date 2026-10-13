@@ -5,6 +5,6 @@ namespace Application.Interfaces;
 
 public interface ITwoFactorAuthService
 {
-    Task<LoginChallengeResponseDto> CreateChallenge(User user);
-    Task<AuthResponseDto> VerifyCode(VerifyTwoFactorDto dto);
+    Task<LoginChallengeResponseDto> CreateChallenge(User user, CancellationToken cancellationToken);
+    Task<AuthResponseDto> VerifyCode(VerifyTwoFactorDto dto, CancellationToken cancellationToken);
 }

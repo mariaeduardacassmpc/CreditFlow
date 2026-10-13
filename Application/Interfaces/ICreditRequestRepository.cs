@@ -1,11 +1,12 @@
-﻿using Domain.Entities;
+﻿using Application.Common;
+using Domain.Entities;
 
 namespace Application.Interfaces;
 
 public interface ICreditRequestRepository
 {
-    Task<Customer?> GetCustomerAsync(int customerId);
-    Task<CreditRequest> CreateAsync(CreditRequest creditRequest);
-    Task<IEnumerable<CreditRequest>> GetAllAsync();
-    Task<CreditRequest?> GetByIdAsync(int id);
+    Task<Customer?> GetCustomerAsync(int customerId, CancellationToken cancellationToken);
+    Task<CreditRequest> CreateAsync(CreditRequest creditRequest, CancellationToken cancellationToken);
+    Task<PagedResult<CreditRequest>> GetAllAsync(int page, int pageSize, int? customerId, Status? status, CancellationToken cancellationToken);
+    Task<CreditRequest?> GetByIdAsync(int id, CancellationToken cancellationToken);
 }

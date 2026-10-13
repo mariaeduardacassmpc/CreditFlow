@@ -18,7 +18,7 @@ public class PasswordResetService(
     IKafkaProducer kafkaProducer
 ) : IPasswordResetService
 {
-    public async Task ForgotPassword(ForgotPasswordDto dto)
+    public async Task ForgotPassword(ForgotPasswordDto dto, CancellationToken cancellation)
     {
         logger.LogInformation("Solicitação de redefinição de senha recebida.");
 
@@ -44,12 +44,13 @@ public class PasswordResetService(
         try
         {
             await kafkaProducer.PublishAsync(
-                "password-reset-requested",
+                "password-reset-requested", 
                 new PasswordResetRequestedEvent
                 {
                     Email = user.Email,
                     Code = resetCode
-                });
+                },
+                cancellation);
 
             logger.LogInformation(
                 "Evento de redefinição publicado no Kafka.");
@@ -61,7 +62,7 @@ public class PasswordResetService(
         }
     }
 
-    public async Task ResetPassword(PasswordResetDto dto)
+    public async Task ResetPassword(PasswordResetDto dto, CancellationToken cancellation)
     {
         var cacheKey = $"password-reset:{dto.Code}";
 

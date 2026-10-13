@@ -1,78 +1,78 @@
-﻿using Application.Dtos;
+﻿using Application.Common;
+using Application.Dtos;
 using Application.Dtos.Credit;
 using Application.Interfaces;
 using Domain.Entities;
-using Domain.Events;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services;
 
-public class CreditRequestService(ICreditRequestRepository repository, ILogger<CreditRequestService> logger, ICreditScoreProvider creditScoreProvider, IKafkaProducer kafkaProducer)
+public class CreditRequestService(
+    ICreditRequestRepository repository, 
+    ILogger<CreditRequestService> logger
+) : ICreditRequestService
 {
-    public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto)
+    public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Criando solicitação de crédito para o cliente {CustomerId}.",
-            dto.CustomerId);
+        logger.LogInformation("Criando solicitação de crédito para o cliente {CustomerId}.", dto.CustomerId);
 
-        var customer = await repository.GetCustomerAsync(dto.CustomerId);
+        var customer = await repository.GetCustomerAsync(dto.CustomerId, cancellationToken);
 
         if (customer is null)
             throw new InvalidOperationException("Cliente não encontrado.");
 
+        if (!customer.Active)
+            throw new InvalidOperationException("O cliente está inativo.");
+
         var creditRequest = new CreditRequest
         {
-            CustomerId = dto.CustomerId,
+            CustomerId = customer.CustomerId,
             Customer = customer,
             RequestedAmount = dto.RequestedAmount,
             MonthlyIncome = dto.MonthlyIncome,
             CreditScore = customer.CreditScore,
             EmploymentMonths = dto.EmploymentMonths,
-            Status = "Pending",
+            Status = Domain.Entities.Status.Pending,
             CreatedAt = DateTime.UtcNow,
             Purpose = dto.Purpose,
             TermMonths = dto.TermMonths
         };
 
-        var createdCreditRequest = await repository.CreateAsync(creditRequest);
-
-        await kafkaProducer.PublishAsync(
-            "credit-request-created",
-            new CreditRequestCreatedEvent
-            {
-                CreditRequestId = createdCreditRequest.CreditRequestId
-            });
+        var createdCreditRequest = await repository.CreateAsync(
+            creditRequest,
+            cancellationToken);
 
         logger.LogInformation(
-            "Solicitação de crédito {CreditRequestId} criada.",
-            createdCreditRequest.CreditRequestId);
+            "Solicitação de crédito {CreditRequestId} criada para o cliente {CustomerId}.",
+            createdCreditRequest.CreditRequestId,
+            createdCreditRequest.CustomerId);
 
         return createdCreditRequest;
     }
 
-    public async Task<IEnumerable<CreditRequestListDto>> GetAllCreditRequests()
+    public async Task<PagedResult<CreditRequestListDto>> GetAllCreditRequests(int page, int pageSize, int? customerId, Status? status, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Buscando todas solicitações de crédito.");
+        logger.LogInformation("Buscando solicitações de crédito. Página: {Page}, Tamanho: {PageSize}, Cliente: {CustomerId}, Status: {Status}", page, pageSize, customerId, status);
 
-        var creditRequests = await repository.GetAllAsync();
+        var result = await repository.GetAllAsync(page, pageSize, customerId, status, cancellationToken);
 
-        return creditRequests.Select(x => new CreditRequestListDto
+        var items = result.Items.Select(x => new CreditRequestListDto
         {
             CreditRequestId = x.CreditRequestId,
             CustomerId = x.CustomerId,
             RequestedAmount = x.RequestedAmount,
             CreatedAt = x.CreatedAt,
             Status = x.Status
-        });
+        }).ToList();
+
+        return new PagedResult<CreditRequestListDto>(items, result.TotalCount, page, pageSize);
     }
 
-    public async Task<CreditRequestDetailsDto?> GetById(int id)
+    public async Task<CreditRequestDetailsDto?> GetById(int id, CancellationToken cancellationToken)
     {
-        logger.LogInformation(
-            "Buscando solicitação de crédito por Id.");
+        logger.LogInformation("Buscando solicitação de crédito por Id.");
 
-        var creditRequest = await repository.GetByIdAsync(id);
+        var creditRequest = await repository.GetByIdAsync(id, cancellationToken);
 
         if (creditRequest is null)
             return null;

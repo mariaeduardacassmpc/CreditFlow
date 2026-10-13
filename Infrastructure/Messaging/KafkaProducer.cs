@@ -1,33 +1,41 @@
 ﻿using System.Text.Json;
-using Confluent.Kafka;
 using Application.Interfaces;
+using Confluent.Kafka;
+using Microsoft.Extensions.Configuration;
 
 namespace Infrastructure.Messaging;
 
-public class KafkaProducer : IKafkaProducer
+public sealed class KafkaProducer : IKafkaProducer, IDisposable
 {
-    private readonly IProducer<Null, string> producer;
+    private readonly IProducer<Null, string> _producer;
 
-    public KafkaProducer()
+    public KafkaProducer(IConfiguration configuration)
     {
+        var bootstrapServers = configuration["Kafka:BootstrapServers"] ?? throw new InvalidOperationException("Kafka:BootstrapServers não configurado.");
+
         var config = new ProducerConfig
         {
-            BootstrapServers = "localhost:29092"
+            BootstrapServers = bootstrapServers,
+            EnableIdempotence = true
         };
 
-        producer = new ProducerBuilder<Null, string>(config)
-            .Build();
+        _producer = new ProducerBuilder<Null, string>(config).Build();
     }
 
-    public async Task PublishAsync<T>(string topic, T message)
+    public async Task PublishAsync<T>(string topic, T message, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(message);
-        
-        var result = await producer.ProduceAsync(topic,
-              new Message<Null, string>
-              {
-                  Value = json
-              }
-        );
+
+        await _producer.ProduceAsync(topic,
+            new Message<Null, string>
+            {
+                Value = json
+            },
+            cancellationToken);
+    }
+
+    public void Dispose()
+    {
+        _producer.Dispose();
     }
 }

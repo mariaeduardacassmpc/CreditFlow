@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <None Include="Dtos\Credit\CreditRequestDetailsDto.cs" />
+    <None Include="Validators\CpfValidator.cs" />
   </ItemGroup>
 
   <ItemGroup>

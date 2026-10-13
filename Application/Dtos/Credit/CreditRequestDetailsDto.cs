@@ -1,4 +1,6 @@
-﻿namespace Application.Dtos;
+﻿using Domain.Entities;
+
+namespace Application.Dtos;
 
 public class CreditRequestDetailsDto
 {
@@ -10,6 +12,6 @@ public class CreditRequestDetailsDto
 	public decimal MonthlyIncome { get; set; }
 	public int CreditScore { get; set; }
 	public int EmploymentMonths { get; set; }
-	public string Status { get; set; } = string.Empty;
+	public Status Status { get; set; }
 	public DateTime CreatedAt { get; set; }
 }

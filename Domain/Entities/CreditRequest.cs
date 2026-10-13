@@ -20,7 +20,7 @@ public class CreditRequest
 
     public int TermMonths { get; set; }
 
-    public string Status { get; set; } = "PENDING";
+    public Status Status { get; set; } = Status.Pending;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

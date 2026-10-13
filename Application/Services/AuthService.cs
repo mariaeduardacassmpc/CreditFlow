@@ -12,7 +12,7 @@ public class AuthService(
     ITwoFactorAuthService twoFactorAuthService
 ) : IAuthService
 {
-    public async Task Register(RegisterDto dto)
+    public async Task Register(RegisterDto dto, CancellationToken cancellationToken)
     {
         logger.LogInformation("Criando usuário.");
 
@@ -39,7 +39,7 @@ public class AuthService(
         logger.LogInformation("Usuário criado com sucesso.");
     }
 
-    public async Task<LoginChallengeResponseDto> Login(LoginDto dto)
+    public async Task<LoginChallengeResponseDto> Login(LoginDto dto, CancellationToken cancellationToken)
     {
         logger.LogInformation("Tentativa de login para o e-mail: {Email}", dto.Email);
 
@@ -53,6 +53,6 @@ public class AuthService(
         if (result == PasswordVerificationResult.Failed)
             throw new UnauthorizedAccessException("E-mail ou senha inválidos.");
 
-        return await twoFactorAuthService.CreateChallenge(user);
+        return await twoFactorAuthService.CreateChallenge(user, cancellationToken);
     }
 }

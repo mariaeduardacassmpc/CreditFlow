@@ -35,8 +35,7 @@ public class TwoFactorAuthService(
         return Convert.ToHexString(hash);
     }
 
-    public async Task<LoginChallengeResponseDto> CreateChallenge(
-        User user)
+    public async Task<LoginChallengeResponseDto> CreateChallenge(User user, CancellationToken cancellation)
     {
         var code = RandomNumberGenerator
             .GetInt32(100000, 1000000)
@@ -67,7 +66,8 @@ public class TwoFactorAuthService(
                 {
                     Email = user.Email,
                     Code = code
-                });
+                },
+                cancellation);
         }
         catch (Exception ex)
         {
@@ -84,7 +84,7 @@ public class TwoFactorAuthService(
         };
     }
 
-    public async Task<AuthResponseDto> VerifyCode(VerifyTwoFactorDto dto)
+    public async Task<AuthResponseDto> VerifyCode(VerifyTwoFactorDto dto, CancellationToken cancellation)
     {
         var cacheKey = $"two-factor:{dto.ChallengeId}";
 

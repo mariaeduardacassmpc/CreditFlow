@@ -1,4 +1,5 @@
 ﻿using Application.Interfaces;
+using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,16 +14,16 @@ public class DashboardRepository(CreditFlowDbContext context) : IDashboardReposi
 
     public async Task<int> GetRequestsInAnalysisAsync()
     {
-        return await context.CreditRequests.CountAsync(x => x.Status == "Pending");
+        return await context.CreditRequests.CountAsync(x => x.Status == Status.Pending);
     }
 
     public async Task<int> GetApprovedRequestsAsync()
     {
-        return await context.CreditRequests.CountAsync(x => x.Status == "Aprovado");
+        return await context.CreditRequests.CountAsync(x => x.Status == Status.Approved);
     }
 
     public async Task<int> GetRejectedRequestsAsync()
     {
-        return await context.CreditRequests.CountAsync(x => x.Status == "Reprovado");
+        return await context.CreditRequests.CountAsync(x => x.Status == Status.Rejected);
     }
 }
