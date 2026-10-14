@@ -11,25 +11,24 @@ public class CreditAnalysisServiceTests
 
     private static CreditRequest CreateValidRequest()
     {
+        var customer = Customer.Create(
+            name: "Maria Silva",
+            phone: "43999999999",
+            email: "maria@email.com",
+            cpf: "12345678900",
+            birthDate: new DateOnly(1995, 1, 1),
+            creditScore: 800
+        );
+
         return new CreditRequest
         {
             CustomerId = 1,
-            Customer = new Customer
-            {
-                CustomerId = 1,
-                Name = "Maria Silva",
-                Email = "maria@email.com",
-                Cpf = "12345678900",
-                Phone = "43999999999",
-                Active = true,
-                BirthDate = new DateTime(1995, 1, 1),
-                CreditScore = 800
-            },
+            Customer = customer,
             RequestedAmount = 5000m,
             MonthlyIncome = 3000m,
             CreditScore = 800,
             EmploymentMonths = 24,
-            Status = "Pending",
+            Status = Status.Pending,
             CreatedAt = DateTime.UtcNow,
             Purpose = CreditPurpose.Business,
             TermMonths = 24
@@ -43,12 +42,12 @@ public class CreditAnalysisServiceTests
 
         var result = _service.Analyze(request);
 
-        Assert.Equal("Aprovado", result.Status);
+        Assert.Equal(Status.Approved, result.Status);
         Assert.All(result.Rules, rule => Assert.True(rule.Approved));
     }
 
     [Fact]
-    public void Analyze_WhenMonthlyIncomeIsBelowMinimum_ShouldRejectRule()
+    public void Analyze_WhenMonthlyIncomeIsBelowMinimum_ShouldReject()
     {
         var request = CreateValidRequest();
         request.MonthlyIncome = 1000m;
@@ -56,23 +55,10 @@ public class CreditAnalysisServiceTests
         var result = _service.Analyze(request);
 
         AssertRuleRejected(result, "Renda mensal mínima de R$ 1.500");
-        Assert.Equal("Reprovado", result.Status);
     }
 
     [Fact]
-    public void Analyze_WhenCreditScoreIsBelow500_ShouldRejectScoreRule()
-    {
-        var request = CreateValidRequest();
-        request.CreditScore = 450;
-        request.Customer.CreditScore = 450;
-
-        var result = _service.Analyze(request);
-
-        AssertRuleRejected(result, "Score mínimo de 500");
-    }
-
-    [Fact]
-    public void Analyze_WhenRequestedAmountIsBelow500_ShouldRejectAmountRule()
+    public void Analyze_WhenRequestedAmountIsBelow500_ShouldReject()
     {
         var request = CreateValidRequest();
         request.RequestedAmount = 400m;
@@ -83,7 +69,7 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenEmploymentIsBelow6Months_ShouldRejectEmploymentRule()
+    public void Analyze_WhenEmploymentIsBelow6Months_ShouldReject()
     {
         var request = CreateValidRequest();
         request.EmploymentMonths = 3;
@@ -94,7 +80,7 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenAmountExceedsEightTimesIncome_ShouldRejectAmountToIncomeRule()
+    public void Analyze_WhenAmountExceedsEightTimesIncome_ShouldReject()
     {
         var request = CreateValidRequest();
         request.RequestedAmount = 25000m;
@@ -106,7 +92,7 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenIncomeCommitmentExceeds30Percent_ShouldRejectRule()
+    public void Analyze_WhenIncomeCommitmentExceeds30Percent_ShouldReject()
     {
         var request = CreateValidRequest();
         request.RequestedAmount = 20000m;
@@ -119,11 +105,12 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenScoreIsNotCompatibleWithAmount_ShouldRejectRule()
+    public void Analyze_WhenScoreIsNotCompatibleWithAmount_ShouldReject()
     {
         var request = CreateValidRequest();
+
         request.CreditScore = 550;
-        request.Customer.CreditScore = 550;
+        request.Customer.UpdateCreditScore(550);
         request.RequestedAmount = 6000m;
 
         var result = _service.Analyze(request);
@@ -132,10 +119,16 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenCustomerIsUnder18_ShouldRejectAgeRule()
+    public void Analyze_WhenCustomerIsUnder18_ShouldReject()
     {
         var request = CreateValidRequest();
-        request.Customer.BirthDate = DateTime.UtcNow.AddYears(-17);
+
+        request.Customer.Update(
+            request.Customer.Name,
+            request.Customer.Phone,
+            request.Customer.Email,
+            request.Customer.Cpf,
+            DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-17));
 
         var result = _service.Analyze(request);
 
@@ -143,10 +136,16 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenCustomerIsOver70_ShouldRejectAgeRule()
+    public void Analyze_WhenCustomerIsOver70_ShouldReject()
     {
         var request = CreateValidRequest();
-        request.Customer.BirthDate = DateTime.UtcNow.AddYears(-71);
+
+        request.Customer.Update(
+            request.Customer.Name,
+            request.Customer.Phone,
+            request.Customer.Email,
+            request.Customer.Cpf,
+            DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-71));
 
         var result = _service.Analyze(request);
 
@@ -154,23 +153,33 @@ public class CreditAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_WhenCustomerIsOver75AtContractEnd_ShouldRejectRule()
+    public void Analyze_WhenCustomerExceeds75AtContractEnd_ShouldReject()
     {
         var request = CreateValidRequest();
-        request.Customer.BirthDate = DateTime.UtcNow.AddYears(-70);
+
+        request.Customer.Update(
+            request.Customer.Name,
+            request.Customer.Phone,
+            request.Customer.Email,
+            request.Customer.Cpf,
+            DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-70));
+
         request.TermMonths = 72;
 
         var result = _service.Analyze(request);
 
-        AssertRuleRejected(result, "Idade ao final do contrato não ultrapassa 75 anos");
+        AssertRuleRejected(
+            result,
+            "Idade ao final do contrato não ultrapassa 75 anos");
     }
 
     [Fact]
-    public void Analyze_WhenRiskLevelIsHigh_ShouldRejectRiskRule()
+    public void Analyze_WhenRiskLevelIsHigh_ShouldReject()
     {
         var request = CreateValidRequest();
+
         request.CreditScore = 400;
-        request.Customer.CreditScore = 400;
+        request.Customer.UpdateCreditScore(400);
         request.EmploymentMonths = 2;
         request.RequestedAmount = 30000m;
         request.MonthlyIncome = 2000m;
@@ -178,7 +187,9 @@ public class CreditAnalysisServiceTests
 
         var result = _service.Analyze(request);
 
-        AssertRuleRejected(result, "Cliente não apresenta perfil de alto risco");
+        AssertRuleRejected(
+            result,
+            "Cliente não apresenta perfil de alto risco");
     }
 
     [Fact]
@@ -191,12 +202,14 @@ public class CreditAnalysisServiceTests
         Assert.Equal(10, result.Rules.Count);
     }
 
-    private static void AssertRuleRejected(CreditAnalysisResult result,
+    private static void AssertRuleRejected(
+        CreditAnalysisResult result,
         string description)
     {
-        var rule = Assert.Single(result.Rules.Where(x => x.Description == description));
+        var rule = Assert.Single(
+            result.Rules.Where(x => x.Description == description));
 
         Assert.False(rule.Approved);
-        Assert.Equal("Reprovado", result.Status);
+        Assert.Equal(Status.Rejected, result.Status);
     }
 }

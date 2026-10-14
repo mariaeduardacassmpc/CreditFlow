@@ -1,8 +1,8 @@
-﻿using Application.Dtos.Credit;
+﻿using Application.Common;
+using Application.Dtos.Credit;
 using Application.Interfaces;
 using Application.Services;
 using Domain.Entities;
-using Domain.Events;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -12,186 +12,197 @@ public class CreditRequestServiceTests
 {
     private readonly Mock<ICreditRequestRepository> _repository = new();
     private readonly Mock<ILogger<CreditRequestService>> _logger = new();
-    private readonly Mock<ICreditScoreProvider> _creditScoreProvider = new();
-    private readonly Mock<IKafkaProducer> _kafkaProducer = new();
     private readonly CreditRequestService _service;
 
     public CreditRequestServiceTests()
     {
         _service = new CreditRequestService(
             _repository.Object,
-            _logger.Object,
-            _creditScoreProvider.Object,
-            _kafkaProducer.Object);
+            _logger.Object);
     }
 
     [Fact]
     public async Task CreateCreditRequest_ComDadosValidos_DeveCriarSolicitacao()
     {
-        var customer = new Customer
-        {
-            CustomerId = 1,
-            Name = "Maria",
-            Email = "maria@teste.com",
-            Cpf = "12345678900",
-            Phone = "43999999999",
-            Active = true,
-            CreditScore = 750,
-            BirthDate = new DateTime(1990, 1, 1)
-        };
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
 
-        var dto = new CreateCreditRequestDto
-        {
-            CustomerId = 1,
-            RequestedAmount = 10000,
-            MonthlyIncome = 5000,
-            EmploymentMonths = 24,
-            Purpose = CreditPurpose.Home,
-            TermMonths = 12
-        };
+        var customer = CreateCustomer(
+            "Maria",
+            "maria@teste.com",
+            "12345678900",
+            750);
+
+        var dto = CreateDto(
+            1,
+            10000m,
+            5000m,
+            24,
+            CreditPurpose.Home,
+            12);
 
         CreditRequest? capturedRequest = null;
 
         _repository
-            .Setup(x => x.GetCustomerAsync(1))
+            .Setup(x => x.GetCustomerAsync(1, token))
             .ReturnsAsync(customer);
 
         _repository
-            .Setup(x => x.CreateAsync(It.IsAny<CreditRequest>()))
-            .Callback<CreditRequest>(request => capturedRequest = request)
-            .ReturnsAsync((CreditRequest request) =>
+            .Setup(x => x.CreateAsync(
+                It.IsAny<CreditRequest>(),
+                token))
+            .Callback<CreditRequest, CancellationToken>(
+                (request, _) => capturedRequest = request)
+            .ReturnsAsync((CreditRequest request, CancellationToken _) =>
             {
                 request.CreditRequestId = 10;
                 return request;
             });
 
-        _kafkaProducer
-            .Setup(x => x.PublishAsync(
-                "credit-request-created",
-                It.IsAny<CreditRequestCreatedEvent>()))
-            .Returns(Task.CompletedTask);
-
-        var result = await _service.CreateCreditRequest(dto);
+        var result = await _service.CreateCreditRequest(dto, token);
 
         Assert.NotNull(capturedRequest);
         Assert.Equal(10, result.CreditRequestId);
-        Assert.Equal(1, result.CustomerId);
-        Assert.Equal(10000, result.RequestedAmount);
-        Assert.Equal(5000, result.MonthlyIncome);
+        Assert.Equal(customer.CustomerId, result.CustomerId);
+        Assert.Equal(10000m, result.RequestedAmount);
+        Assert.Equal(5000m, result.MonthlyIncome);
         Assert.Equal(750, result.CreditScore);
-        Assert.Equal("Pending", result.Status);
-        Assert.Equal(CreditPurpose.Home, result.Purpose);
+        Assert.Equal(nameof(Status.Pending), result.Status);
+        Assert.Equal(nameof(CreditPurpose.Home), result.Purpose);
         Assert.Equal(12, result.TermMonths);
         Assert.Equal(24, result.EmploymentMonths);
-        Assert.Same(customer, result.Customer);
 
-        _repository.Verify(x => x.CreateAsync(It.IsAny<CreditRequest>()), Times.Once);
-        _kafkaProducer.Verify(
-            x => x.PublishAsync(
-                "credit-request-created",
-                It.Is<CreditRequestCreatedEvent>(e => e.CreditRequestId == 10)),
+        Assert.Equal(customer.CustomerId, capturedRequest.CustomerId);
+        Assert.Equal(customer, capturedRequest.Customer);
+
+        _repository.Verify(
+            x => x.GetCustomerAsync(1, token),
+            Times.Once);
+
+        _repository.Verify(
+            x => x.CreateAsync(
+                It.IsAny<CreditRequest>(),
+                token),
             Times.Once);
     }
 
     [Fact]
     public async Task CreateCreditRequest_ClienteInexistente_DeveLancarExcecao()
     {
-        var dto = new CreateCreditRequestDto
-        {
-            CustomerId = 99,
-            RequestedAmount = 10000,
-            MonthlyIncome = 5000,
-            EmploymentMonths = 12,
-            Purpose = CreditPurpose.Personal,
-            TermMonths = 12
-        };
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        var dto = CreateDto(
+            99,
+            10000m,
+            5000m,
+            12,
+            CreditPurpose.Personal,
+            12);
 
         _repository
-            .Setup(x => x.GetCustomerAsync(99))
+            .Setup(x => x.GetCustomerAsync(99, token))
             .ReturnsAsync((Customer?)null);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.CreateCreditRequest(dto));
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.CreateCreditRequest(dto, token));
 
         Assert.Equal("Cliente não encontrado.", exception.Message);
 
         _repository.Verify(
-            x => x.CreateAsync(It.IsAny<CreditRequest>()),
-            Times.Never);
-
-        _kafkaProducer.Verify(
-            x => x.PublishAsync(
-                It.IsAny<string>(),
-                It.IsAny<CreditRequestCreatedEvent>()),
+            x => x.CreateAsync(
+                It.IsAny<CreditRequest>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task CreateCreditRequest_DevePublicarEventoAposCriacao()
+    public async Task CreateCreditRequest_ClienteInativo_DeveLancarExcecao()
     {
-        var customer = new Customer
-        {
-            CustomerId = 2,
-            Name = "Ana",
-            Email = "ana@teste.com",
-            Cpf = "98765432100",
-            Phone = "43988888888",
-            Active = true,
-            CreditScore = 680,
-            BirthDate = new DateTime(1990, 1, 1)
-        };
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
 
-        var dto = new CreateCreditRequestDto
-        {
-            CustomerId = 2,
-            RequestedAmount = 5000,
-            MonthlyIncome = 3000,
-            EmploymentMonths = 18,
-            Purpose = CreditPurpose.DebtConsolidation,
-            TermMonths = 6
-        };
+        var customer = CreateCustomer(
+            "Ana",
+            "ana@teste.com",
+            "98765432100",
+            680);
+
+        customer.SetActive(false);
+
+        var dto = CreateDto(
+            2,
+            5000m,
+            3000m,
+            18,
+            CreditPurpose.Personal,
+            6);
 
         _repository
-            .Setup(x => x.GetCustomerAsync(2))
+            .Setup(x => x.GetCustomerAsync(2, token))
+            .ReturnsAsync(customer);
+
+        var exception =
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.CreateCreditRequest(dto, token));
+
+        Assert.Equal("O cliente está inativo.", exception.Message);
+
+        _repository.Verify(
+            x => x.CreateAsync(
+                It.IsAny<CreditRequest>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateCreditRequest_DeveUsarScoreDoCliente()
+    {
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        var customer = CreateCustomer(
+            "João",
+            "joao@teste.com",
+            "11122233344",
+            620);
+
+        var dto = CreateDto(
+            3,
+            2000m,
+            2500m,
+            6,
+            CreditPurpose.Business,
+            6);
+
+        _repository
+            .Setup(x => x.GetCustomerAsync(3, token))
             .ReturnsAsync(customer);
 
         _repository
-            .Setup(x => x.CreateAsync(It.IsAny<CreditRequest>()))
-            .ReturnsAsync((CreditRequest request) =>
-            {
-                request.CreditRequestId = 20;
-                return request;
-            });
+            .Setup(x => x.CreateAsync(
+                It.IsAny<CreditRequest>(),
+                token))
+            .ReturnsAsync((CreditRequest request, CancellationToken _) =>
+                request);
 
-        _kafkaProducer
-            .Setup(x => x.PublishAsync(
-                "credit-request-created",
-                It.IsAny<CreditRequestCreatedEvent>()))
-            .Returns(Task.CompletedTask);
+        var result = await _service.CreateCreditRequest(dto, token);
 
-        await _service.CreateCreditRequest(dto);
-
-        _kafkaProducer.Verify(
-            x => x.PublishAsync(
-                "credit-request-created",
-                It.Is<CreditRequestCreatedEvent>(e => e.CreditRequestId == 20)),
-            Times.Once);
+        Assert.Equal(customer.CreditScore, result.CreditScore);
     }
 
     [Fact]
     public async Task GetAllCreditRequests_DeveRetornarSolicitacoesMapeadas()
     {
-        var customer = new Customer
-        {
-            CustomerId = 1,
-            Name = "Maria",
-            Email = "maria@teste.com",
-            Cpf = "12345678900",
-            Phone = "43999999999",
-            Active = true,
-            CreditScore = 750,
-            BirthDate = new DateTime(1990, 1, 1)
-        };
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        var customer = CreateCustomer(
+            "Maria",
+            "maria@teste.com",
+            "12345678900",
+            750);
 
         var requests = new List<CreditRequest>
         {
@@ -200,11 +211,11 @@ public class CreditRequestServiceTests
                 CreditRequestId = 1,
                 CustomerId = 1,
                 Customer = customer,
-                RequestedAmount = 10000,
-                MonthlyIncome = 5000,
+                RequestedAmount = 10000m,
+                MonthlyIncome = 5000m,
                 CreditScore = 750,
                 EmploymentMonths = 24,
-                Status = "Pending",
+                Status = Status.Pending,
                 CreatedAt = DateTime.UtcNow,
                 Purpose = CreditPurpose.Business,
                 TermMonths = 12
@@ -214,148 +225,177 @@ public class CreditRequestServiceTests
                 CreditRequestId = 2,
                 CustomerId = 1,
                 Customer = customer,
-                RequestedAmount = 5000,
-                MonthlyIncome = 5000,
+                RequestedAmount = 5000m,
+                MonthlyIncome = 5000m,
                 CreditScore = 750,
                 EmploymentMonths = 24,
-                Status = "Approved",
+                Status = Status.Approved,
                 CreatedAt = DateTime.UtcNow,
                 Purpose = CreditPurpose.Personal,
                 TermMonths = 6
             }
         };
 
+        var pagedRequests = new PagedResult<CreditRequest>(
+            requests,
+            1,
+            10,
+            requests.Count);
+
         _repository
-            .Setup(x => x.GetAllAsync())
-            .ReturnsAsync(requests);
+            .Setup(x => x.GetAllAsync(1, 10, null, null, token))
+            .ReturnsAsync(pagedRequests);
 
-        var result = (await _service.GetAllCreditRequests()).ToList();
+        var result = await _service.GetAllCreditRequests(
+            page: 1,
+            pageSize: 10,
+            customerId: null,
+            status: null,
+            cancellationToken: token);
 
-        Assert.Equal(2, result.Count);
-        Assert.Equal(1, result[0].CreditRequestId);
-        Assert.Equal(10000, result[0].RequestedAmount);
-        Assert.Equal("Pending", result[0].Status);
-        Assert.Equal(2, result[1].CreditRequestId);
-        Assert.Equal("Approved", result[1].Status);
+        Assert.Equal(2, result.Items.Count);
+        Assert.Equal(1, result.Items[0].CreditRequestId);
+        Assert.Equal(10000m, result.Items[0].RequestedAmount);
+        Assert.Equal(Status.Pending, result.Items[0].Status);
+        Assert.Equal(2, result.Items[1].CreditRequestId);
+        Assert.Equal(Status.Approved, result.Items[1].Status);
+        Assert.Equal(2, result.TotalCount);
+
+        _repository.Verify(
+            x => x.GetAllAsync(1, 10, null, null, token),
+            Times.Once);
     }
 
     [Fact]
     public async Task GetAllCreditRequests_SemSolicitacoes_DeveRetornarListaVazia()
     {
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        var emptyPagedRequests = new PagedResult<CreditRequest>(
+            new List<CreditRequest>(),
+            1,
+            10,
+            0);
+
         _repository
-            .Setup(x => x.GetAllAsync())
-            .ReturnsAsync(new List<CreditRequest>());
+            .Setup(x => x.GetAllAsync(1, 10, null, null, token))
+            .ReturnsAsync(emptyPagedRequests);
 
-        var result = await _service.GetAllCreditRequests();
+        var result = await _service.GetAllCreditRequests(
+            page: 1,
+            pageSize: 10,
+            customerId: null,
+            status: null,
+            cancellationToken: token);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Items);
+        Assert.Equal(0, result.TotalCount);
+
+        _repository.Verify(
+            x => x.GetAllAsync(1, 10, null, null, token),
+            Times.Once);
     }
 
     [Fact]
     public async Task GetById_SolicitacaoExistente_DeveRetornarDetalhes()
     {
-        var customer = new Customer
-        {
-            CustomerId = 1,
-            Name = "Maria",
-            Email = "maria@teste.com",
-            Cpf = "12345678900",
-            Phone = "43999999999",
-            Active = true,
-            CreditScore = 750,
-            BirthDate = new DateTime(1990, 1, 1)
-        };
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
+        var customer = CreateCustomer(
+            "Maria",
+            "maria@teste.com",
+            "12345678900",
+            750);
 
         var request = new CreditRequest
         {
             CreditRequestId = 10,
             CustomerId = 1,
             Customer = customer,
-            RequestedAmount = 10000,
-            MonthlyIncome = 5000,
+            RequestedAmount = 10000m,
+            MonthlyIncome = 5000m,
             CreditScore = 750,
             EmploymentMonths = 24,
-            Status = "Pending",
+            Status = Status.Pending,
             CreatedAt = DateTime.UtcNow,
             Purpose = CreditPurpose.Vehicle,
             TermMonths = 12
         };
 
         _repository
-            .Setup(x => x.GetByIdAsync(10))
+            .Setup(x => x.GetByIdAsync(10, token))
             .ReturnsAsync(request);
 
-        var result = await _service.GetById(10);
+        var result = await _service.GetById(10, token);
 
         Assert.NotNull(result);
         Assert.Equal(10, result.CreditRequestId);
         Assert.Equal(1, result.CustomerId);
         Assert.Equal("Maria", result.CustomerName);
         Assert.Equal("maria@teste.com", result.CustomerEmail);
-        Assert.Equal(10000, result.RequestedAmount);
-        Assert.Equal(5000, result.MonthlyIncome);
+        Assert.Equal(10000m, result.RequestedAmount);
+        Assert.Equal(5000m, result.MonthlyIncome);
         Assert.Equal(750, result.CreditScore);
         Assert.Equal(24, result.EmploymentMonths);
-        Assert.Equal("Pending", result.Status);
+        Assert.Equal(Status.Pending, result.Status);
+
+        _repository.Verify(
+            x => x.GetByIdAsync(10, token),
+            Times.Once);
     }
 
     [Fact]
     public async Task GetById_SolicitacaoInexistente_DeveRetornarNull()
     {
+        using var cts = new CancellationTokenSource();
+        var token = cts.Token;
+
         _repository
-            .Setup(x => x.GetByIdAsync(99))
+            .Setup(x => x.GetByIdAsync(99, token))
             .ReturnsAsync((CreditRequest?)null);
 
-        var result = await _service.GetById(99);
+        var result = await _service.GetById(99, token);
 
         Assert.Null(result);
+
+        _repository.Verify(
+            x => x.GetByIdAsync(99, token),
+            Times.Once);
     }
 
-    [Fact]
-    public async Task CreateCreditRequest_DeveUsarScoreDoCliente()
+    private static Customer CreateCustomer(
+        string name,
+        string email,
+        string cpf,
+        int creditScore)
     {
-        var customer = new Customer
+        return Customer.Create(
+            name,
+            "43999999999",
+            email,
+            cpf,
+            new DateOnly(1990, 1, 1),
+            creditScore);
+    }
+
+    private static CreateCreditRequestDto CreateDto(
+        int customerId,
+        decimal requestedAmount,
+        decimal monthlyIncome,
+        int employmentMonths,
+        CreditPurpose purpose,
+        int termMonths)
+    {
+        return new CreateCreditRequestDto
         {
-            CustomerId = 3,
-            Name = "João",
-            Email = "joao@teste.com",
-            Cpf = "11122233344",
-            Phone = "43977777777",
-            Active = true,
-            CreditScore = 620,
-            BirthDate = new DateTime(1990, 1, 1)
+            CustomerId = customerId,
+            RequestedAmount = requestedAmount,
+            MonthlyIncome = monthlyIncome,
+            EmploymentMonths = employmentMonths,
+            Purpose = purpose,
+            TermMonths = termMonths
         };
-
-        var dto = new CreateCreditRequestDto
-        {
-            CustomerId = 3,
-            RequestedAmount = 2000,
-            MonthlyIncome = 2500,
-            EmploymentMonths = 6,
-            Purpose = CreditPurpose.Business,
-            TermMonths = 6
-        };
-
-        _repository
-            .Setup(x => x.GetCustomerAsync(3))
-            .ReturnsAsync(customer);
-
-        _repository
-            .Setup(x => x.CreateAsync(It.IsAny<CreditRequest>()))
-            .ReturnsAsync((CreditRequest request) => request);
-
-        _kafkaProducer
-            .Setup(x => x.PublishAsync(
-                "credit-request-created",
-                It.IsAny<CreditRequestCreatedEvent>()))
-            .Returns(Task.CompletedTask);
-
-        var result = await _service.CreateCreditRequest(dto);
-
-        Assert.Equal(customer.CreditScore, result.CreditScore);
-
-        _creditScoreProvider.Verify(
-            x => x.GetScoreAsync(It.IsAny<string>()),
-            Times.Never);
     }
 }

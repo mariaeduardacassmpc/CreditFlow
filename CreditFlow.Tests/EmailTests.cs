@@ -37,7 +37,10 @@ public class EmailServiceTests
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SendPasswordResetEmail("maria@teste.com", "123456"));
 
-        Assert.Equal("A chave da API do AgentMail não foi configurada.", exception.Message);
+        Assert.Equal(
+            "Configure AgentMail:ApiKey e AgentMail:Inbox.",
+            exception.Message
+        );
     }
 
     [Fact]
@@ -48,7 +51,10 @@ public class EmailServiceTests
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SendPasswordResetEmail("maria@teste.com", "123456"));
 
-        Assert.Equal("O inbox do AgentMail não foi configurado.", exception.Message);
+        Assert.Equal(
+            "Configure AgentMail:ApiKey e AgentMail:Inbox.",
+            exception.Message
+        );
     }
 
     [Fact]

@@ -1,24 +1,21 @@
-﻿
-using Application.Dtos.Auth;
+﻿using Application.Dtos.Auth;
 using Application.Interfaces;
 using Application.Services;
 using Domain.Entities;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 
 namespace CreditFlow.Tests.Services;
 
-public class AuthServiceTests : IDisposable
+public class AuthServiceTests
 {
     private readonly Mock<IUserRepository> _repository = new();
     private readonly Mock<IPasswordHasher<User>> _passwordHasher = new();
     private readonly Mock<ILogger<AuthService>> _logger = new();
-    private readonly Mock<ITokenService> _tokenService = new();
-    private readonly Mock<IEmailService> _emailService = new();
-    private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
+    private readonly Mock<ITwoFactorAuthService> _twoFactorAuthService = new();
 
+    private readonly CancellationToken _cancellationToken = CancellationToken.None;
     private readonly AuthService _service;
 
     public AuthServiceTests()
@@ -27,9 +24,7 @@ public class AuthServiceTests : IDisposable
             _repository.Object,
             _passwordHasher.Object,
             _logger.Object,
-            _tokenService.Object,
-            _memoryCache,
-            _emailService.Object);
+            _twoFactorAuthService.Object);
     }
 
     [Fact]
@@ -52,7 +47,7 @@ public class AuthServiceTests : IDisposable
                 dto.Password))
             .Returns("hashed-password");
 
-        await _service.Register(dto);
+        await _service.Register(dto, _cancellationToken);
 
         _repository.Verify(
             x => x.AddAsync(It.Is<User>(u =>
@@ -88,7 +83,7 @@ public class AuthServiceTests : IDisposable
             });
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.Register(dto));
+            () => _service.Register(dto, _cancellationToken));
 
         Assert.Equal("E-mail já cadastrado.", exception.Message);
 
@@ -102,7 +97,7 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_ComCredenciaisValidas_DeveRetornarToken()
+    public async Task Login_ComCredenciaisValidas_DeveCriarDesafio()
     {
         var dto = new LoginDto
         {
@@ -118,6 +113,12 @@ public class AuthServiceTests : IDisposable
             Active = true
         };
 
+        var expectedResponse = new LoginChallengeResponseDto
+        {
+            Message = "Código de verificação enviado.",
+            ChallengeId = Guid.NewGuid().ToString()
+        };
+
         _repository
             .Setup(x => x.GetByEmailAsync(dto.Email))
             .ReturnsAsync(user);
@@ -129,20 +130,16 @@ public class AuthServiceTests : IDisposable
                 dto.Password))
             .Returns(PasswordVerificationResult.Success);
 
-        var expiresAt = DateTime.UtcNow.AddMinutes(30);
+        _twoFactorAuthService
+            .Setup(x => x.CreateChallenge(user, _cancellationToken))
+            .ReturnsAsync(expectedResponse);
 
-        _tokenService
-            .Setup(x => x.GenerateToken(user))
-            .Returns(("fake-jwt-token", expiresAt));
+        var result = await _service.Login(dto, _cancellationToken);
 
-        var result = await _service.Login(dto);
+        Assert.Same(expectedResponse, result);
 
-        Assert.Equal("fake-jwt-token", result.Token);
-        Assert.Equal(expiresAt, result.ExpiresAt);
-        Assert.Equal(user.Email, result.User.Email);
-
-        _tokenService.Verify(
-            x => x.GenerateToken(user),
+        _twoFactorAuthService.Verify(
+            x => x.CreateChallenge(user, _cancellationToken),
             Times.Once);
     }
 
@@ -160,14 +157,14 @@ public class AuthServiceTests : IDisposable
             .ReturnsAsync((User?)null);
 
         var exception = await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _service.Login(dto));
+            () => _service.Login(dto, _cancellationToken));
 
-        Assert.Equal(
-            "E-mail ou senha inválidos.",
-            exception.Message);
+        Assert.Equal("E-mail ou senha inválidos.", exception.Message);
 
-        _tokenService.Verify(
-            x => x.GenerateToken(It.IsAny<User>()),
+        _twoFactorAuthService.Verify(
+            x => x.CreateChallenge(
+                It.IsAny<User>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -200,10 +197,12 @@ public class AuthServiceTests : IDisposable
             .Returns(PasswordVerificationResult.Failed);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _service.Login(dto));
+            () => _service.Login(dto, _cancellationToken));
 
-        _tokenService.Verify(
-            x => x.GenerateToken(It.IsAny<User>()),
+        _twoFactorAuthService.Verify(
+            x => x.CreateChallenge(
+                It.IsAny<User>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -217,7 +216,7 @@ public class AuthServiceTests : IDisposable
         };
 
         _repository
-          .Setup(x => x.GetByEmailAsync(dto.Email))
+            .Setup(x => x.GetByEmailAsync(dto.Email))
             .ReturnsAsync(new User
             {
                 Name = "Maria",
@@ -227,7 +226,7 @@ public class AuthServiceTests : IDisposable
             });
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => _service.Login(dto));
+            () => _service.Login(dto, _cancellationToken));
 
         _passwordHasher.Verify(
             x => x.VerifyHashedPassword(
@@ -235,55 +234,11 @@ public class AuthServiceTests : IDisposable
                 It.IsAny<string>(),
                 It.IsAny<string>()),
             Times.Never);
-    }
 
-    [Fact]
-    public async Task ForgotPassword_UsuarioInexistente_DeveLancarExcecao()
-    {
-        var dto = new ForgotPasswordDto
-        {
-            Email = "inexistente@teste.com"
-        };
-
-        _repository
-            .Setup(x => x.GetByEmailAsync(dto.Email))
-            .ReturnsAsync((User?)null);
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.ForgotPassword(dto));
-
-        Assert.Equal("Usuário não encontrado.", exception.Message);
-
-        _emailService.Verify(
-            x => x.SendPasswordResetEmail(
-                It.IsAny<string>(),
-                It.IsAny<string>()),
+        _twoFactorAuthService.Verify(
+            x => x.CreateChallenge(
+                It.IsAny<User>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
-    }
-
-    [Fact]
-    public async Task ResetPassword_CodigoInvalido_DeveLancarExcecao()
-    {
-        var dto = new PasswordResetDto
-        {
-            Code = "123456",
-            NewPassword = "NovaSenha123!"
-        };
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.ResetPassword(dto));
-
-        Assert.Equal(
-            "Código de redefinição de senha inválido ou expirado.",
-            exception.Message);
-
-        _repository.Verify(
-            x => x.SaveChangesAsync(),
-            Times.Never);
-    }
-
-    public void Dispose()
-    {
-        _memoryCache.Dispose();
     }
 }

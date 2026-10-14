@@ -1,4 +1,6 @@
-using CreditFlowAPI.Extension;
+ï»¿using CreditFlowAPI.Extension;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +11,9 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Application.Validators.Auth.RegisterDtoValidator>();
 
 builder.Services.AddEndpointsApiExplorer();
 
@@ -51,13 +56,13 @@ builder.Services
     .AddJwtBearer(options =>
     {
         var key = builder.Configuration["Jwt:Key"]
-            ?? throw new InvalidOperationException("JWT Key não configurada.");
+            ?? throw new InvalidOperationException("JWT Key nï¿½o configurada.");
 
         var issuer = builder.Configuration["Jwt:Issuer"]
-            ?? throw new InvalidOperationException("JWT Issuer não configurado.");
+            ?? throw new InvalidOperationException("JWT Issuer nï¿½o configurado.");
 
         var audience = builder.Configuration["Jwt:Audience"]
-            ?? throw new InvalidOperationException("JWT Audience não configurado.");
+            ?? throw new InvalidOperationException("JWT Audience nï¿½o configurado.");
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
