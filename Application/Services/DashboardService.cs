@@ -3,7 +3,9 @@ using Application.Interfaces;
 
 namespace Application.Services;
 
-public class DashboardService(IDashboardRepository repository)
+public class DashboardService(
+    IDashboardRepository repository
+) : IDashboardService
 {
     public async Task<CreditDashboardDto> GetDashboard()
     {

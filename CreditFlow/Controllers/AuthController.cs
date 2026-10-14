@@ -3,7 +3,7 @@ using Application.Dtos.Password;
 using Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
-namespace CreditFlow.Api.Controllers;
+namespace CreditFlowAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

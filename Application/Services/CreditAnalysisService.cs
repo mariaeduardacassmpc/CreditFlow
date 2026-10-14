@@ -1,8 +1,9 @@
 ﻿using Application.Dtos.Credit;
 using Application.Dtos.CreditRequest;
+using Application.Interfaces;
 using Domain.Entities;
 
-public class CreditAnalysisService
+public class CreditAnalysisService : ICreditAnalysisService
 {
     public CreditAnalysisResult Analyze(CreditRequest creditRequest)
     {

@@ -3,12 +3,14 @@ using Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Api.Controllers;
+namespace CreditFlowAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize] 
-public class CustomersController(ICustomerService customerService) : ControllerBase
+public class CustomersController(
+    ICustomerService customerService
+) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCustomerDto dto, CancellationToken cancellationToken)

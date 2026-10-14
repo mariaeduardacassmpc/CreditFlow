@@ -8,7 +8,9 @@ namespace CreditFlowAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class CreditRequestController(ICreditRequestService service) : ControllerBase
+public class CreditRequestController(
+    ICreditRequestService service
+) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCreditRequestDto dto, CancellationToken cancellationToken)

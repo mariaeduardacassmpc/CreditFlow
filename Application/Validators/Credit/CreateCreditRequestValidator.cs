@@ -1,4 +1,5 @@
-﻿using Application.Dtos.Credit;
+﻿
+using Application.Dtos.Credit;
 using FluentValidation;
 
 namespace Application.Validators.Credit;
@@ -27,8 +28,9 @@ public class CreateCreditRequestDtoValidator
             .WithMessage("O score de crédito deve estar entre 0 e 1000.");
 
         RuleFor(x => x.EmploymentMonths)
-            .GreaterThanOrEqualTo(0)
-            .WithMessage("O tempo de emprego não pode ser negativo.");
+            .InclusiveBetween(0, 600)
+            .WithMessage(
+                "O tempo de emprego deve estar entre 0 e 600 meses.");
 
         RuleFor(x => x.TermMonths)
             .InclusiveBetween(1, 120)

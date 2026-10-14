@@ -19,9 +19,8 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<ICreditRequestService, CreditRequestService>();
-
-        services.AddScoped<DashboardService>();
-        services.AddScoped<CreditAnalysisService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<ICreditAnalysisService, CreditAnalysisService>();
 
         services.AddScoped<ITwoFactorAuthService, TwoFactorAuthService>();
         services.AddScoped<IPasswordResetService, PasswordResetService>();

@@ -12,5 +12,5 @@ public class CreditAnalysis
 
     public DateTime AnalyzedAt { get; set; }
 
-    public List<CreditRuleResult> Rules { get; set; } = [];
+    public List<CreditRuleResult> Rules { get; set; } = new List<CreditRuleResult>();
 }

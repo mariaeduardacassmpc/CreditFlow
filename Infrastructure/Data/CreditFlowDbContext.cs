@@ -23,10 +23,6 @@ public class CreditFlowDbContext(
 
         modelBuilder.Entity<CreditRequest>()
             .Property(x => x.Status)
-            .HasConversion<string>();
-
-        modelBuilder.Entity<CreditRequest>()
-            .Property(x => x.Status)
             .HasConversion(
                 status => status == Status.Rejected ? "Reprovado" :
                           status == Status.Approved ? "Aprovado" :

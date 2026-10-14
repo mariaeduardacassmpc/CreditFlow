@@ -12,11 +12,17 @@ public class CreditRequestService(
     ILogger<CreditRequestService> logger
 ) : ICreditRequestService
 {
-    public async Task<CreditRequest> CreateCreditRequest(CreateCreditRequestDto dto, CancellationToken cancellationToken)
+    public async Task<CreditRequestResponseDto> CreateCreditRequest(
+      CreateCreditRequestDto dto,
+      CancellationToken cancellationToken)
     {
-        logger.LogInformation("Criando solicitação de crédito para o cliente {CustomerId}.", dto.CustomerId);
+        logger.LogInformation(
+            "Criando solicitação de crédito para o cliente {CustomerId}.",
+            dto.CustomerId);
 
-        var customer = await repository.GetCustomerAsync(dto.CustomerId, cancellationToken);
+        var customer = await repository.GetCustomerAsync(
+            dto.CustomerId,
+            cancellationToken);
 
         if (customer is null)
             throw new InvalidOperationException("Cliente não encontrado.");
@@ -47,7 +53,19 @@ public class CreditRequestService(
             createdCreditRequest.CreditRequestId,
             createdCreditRequest.CustomerId);
 
-        return createdCreditRequest;
+        return new CreditRequestResponseDto
+        {
+            CreditRequestId = createdCreditRequest.CreditRequestId,
+            CustomerId = createdCreditRequest.CustomerId,
+            RequestedAmount = createdCreditRequest.RequestedAmount,
+            MonthlyIncome = createdCreditRequest.MonthlyIncome,
+            CreditScore = createdCreditRequest.CreditScore,
+            EmploymentMonths = createdCreditRequest.EmploymentMonths,
+            Status = createdCreditRequest.Status.ToString(),
+            CreatedAt = createdCreditRequest.CreatedAt,
+            Purpose = createdCreditRequest.Purpose.ToString(),
+            TermMonths = createdCreditRequest.TermMonths
+        };
     }
 
     public async Task<PagedResult<CreditRequestListDto>> GetAllCreditRequests(int page, int pageSize, int? customerId, Status? status, CancellationToken cancellationToken)
@@ -65,7 +83,11 @@ public class CreditRequestService(
             Status = x.Status
         }).ToList();
 
-        return new PagedResult<CreditRequestListDto>(items, result.TotalCount, page, pageSize);
+        return new PagedResult<CreditRequestListDto>(
+            items,
+            page,
+            pageSize,
+            result.TotalCount);
     }
 
     public async Task<CreditRequestDetailsDto?> GetById(int id, CancellationToken cancellationToken)
