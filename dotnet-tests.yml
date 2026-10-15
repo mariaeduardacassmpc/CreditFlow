@@ -25,10 +25,10 @@ jobs:
           dotnet-version: 9.0.x
 
       - name: Restore dependencies
-        run: dotnet restore ./CreditFlow.Tests/Tests.csproj
+        run: dotnet restore ./Tests/Tests.csproj
 
       - name: Build project
-        run: dotnet build ./CreditFlow.Tests/ests.csproj --configuration Release --no-restore
+        run: dotnet build ./Tests/Tests.csproj --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test ./CreditFlow.Tests/Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+        run: dotnet test ./Tests/Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
