@@ -1,67 +1,90 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Text.Json;
 
-namespace CreditFlow.Api.Exceptions;
+namespace Application.Middleware;
 
-public class Middleware(RequestDelegate next)
+public class ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
 {
-    public async Task InvokeAsync(HttpContext context)
+    public async Task Invoke(HttpContext context)
     {
         try
         {
             await next(context);
         }
-        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        catch (ValidationException ex)
         {
+            logger.LogWarning(ex, "Falha de validação da requisição.");
+
+            var errors = ex.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            var problem = new ValidationProblemDetails(errors)
+            {
+                Title = "Requisição inválida",
+                Status = StatusCodes.Status400BadRequest,
+                Type = "https://httpstatuses.com/400"
+            };
+
+            await WriteProblemDetails(context, problem);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogWarning(ex, "Acesso não autorizado.");
+
+            var problem = new ProblemDetails
+            {
+                Title = "Não autorizado",
+                Detail = ex.Message,
+                Status = StatusCodes.Status401Unauthorized,
+                Type = "https://httpstatuses.com/401"
+            };
+
+            await WriteProblemDetails(context, problem);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogInformation(ex, "Operação inválida.");
+
+            var problem = new ProblemDetails
+            {
+                Title = "Operação inválida",
+                Detail = ex.Message,
+                Status = StatusCodes.Status400BadRequest,
+                Type = "https://httpstatuses.com/400"
+            };
+
+            await WriteProblemDetails(context, problem);
         }
         catch (Exception ex)
         {
-            await HandleExceptionAsync(context, ex);
+            logger.LogError(ex, "Erro não tratado.");
+
+            var problem = new ProblemDetails    
+            {
+                Title = "Erro interno",
+                Detail = "Ocorreu um erro interno no servidor.",
+                Status = StatusCodes.Status500InternalServerError,
+                Type = "https://httpstatuses.com/500"
+            };
+
+            await WriteProblemDetails(context, problem);
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context, Exception ex)
+    private static async Task WriteProblemDetails(HttpContext context, ProblemDetails problem)
     {
         if (context.Response.HasStarted)
-            throw ex;
+            throw new InvalidOperationException("A resposta HTTP já foi iniciada.");
 
-        var (status, title, detail) = ex switch
-        {
-            UnauthorizedAccessException => (
-                HttpStatusCode.Forbidden,
-                "Acesso negado",
-                "Você não tem permissão para realizar esta operação."),
-
-            KeyNotFoundException => (
-                HttpStatusCode.NotFound,
-                "Recurso não encontrado",
-                "O recurso solicitado não foi encontrado."),
-
-            ArgumentException => (
-                HttpStatusCode.BadRequest,
-                "Argumento inválido",
-                ex.Message),
-
-            _ => (
-                HttpStatusCode.InternalServerError,
-                "Erro interno do servidor",
-                "Ocorreu um erro inesperado.")
-        };
-
-        context.Response.StatusCode = (int)status;
+        context.Response.Clear();
+        context.Response.StatusCode = problem.Status ?? (int)HttpStatusCode.InternalServerError;
         context.Response.ContentType = "application/problem+json";
 
-        var problem = new
-        {
-            type = $"https://httpstatuses.com/{(int)status}",
-            title,
-            status = (int)status,
-            detail
-        };
-
-        var json = JsonSerializer.Serialize(problem);
-        await context.Response.WriteAsync(json);
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
     }
 }
